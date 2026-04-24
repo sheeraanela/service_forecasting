@@ -543,8 +543,22 @@ with tab2:
         st.markdown(f"""
         <div class="xai-box">
             <div class="xai-title">🔍 TOP 5 DRIVING FEATURES</div>
-            {html_rows}
         </div>""", unsafe_allow_html=True)
+        
+        for _, row in shap_df.iterrows():
+            direction = "↑" if row['shap'] > 0 else "↓"
+            color     = "#CC0000" if row['shap'] > 0 else "#0066CC"
+            bar_width = int((row['abs_shap'] / max_abs) * 100)
+            
+            col_a, col_b, col_c = st.columns([1, 3, 4])
+            with col_a:
+                st.markdown(f"<span style='color:{color};font-size:1.3rem;font-weight:700'>{direction}</span>", 
+                            unsafe_allow_html=True)
+            with col_b:
+                st.markdown(f"**{row['feature']}**  \n`val={row['value']:.1f}`")
+            with col_c:
+                st.progress(bar_width)
+                st.caption(f"impact: {row['shap']:+.1f}")
 
         st.markdown("""
         <div style="background:#F5F5F5;padding:1rem;border-left:4px solid #CC0000;
