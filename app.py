@@ -290,11 +290,13 @@ def make_forecast_chart(kec, show_actual=False, actual_df=None):
     ))
 
     # Lebaran marker
-    if lb26:
-        fig.add_vline(x=lb26, line_dash='dash',
-                      line_color='#00AA00', line_width=2,
-                      annotation_text='Lebaran 2026',
-                      annotation_font_color='#008800')
+    fig.add_shape(
+    type='line',
+    x0=str(fc_row['ds']), x1=str(fc_row['ds']),
+    y0=0, y1=1,
+    yref='paper',
+    line=dict(color='#CC0000', width=2, dash='dot'),
+    )
 
     fig.update_layout(
         plot_bgcolor='#FFFFFF',
