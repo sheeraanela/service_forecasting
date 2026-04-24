@@ -290,13 +290,13 @@ def make_forecast_chart(kec, show_actual=False, actual_df=None):
     ))
 
     # Lebaran marker
-    fig.add_shape(
-    type='line',
-    x0=str(fc_row['ds']), x1=str(fc_row['ds']),
-    y0=0, y1=1,
-    yref='paper',
-    line=dict(color='#CC0000', width=2, dash='dot'),
-    )
+    if lb26:
+        fig.add_shape(
+            type='line',
+            x0=str(lb26), x1=str(lb26),
+            y0=0, y1=1, yref='paper',
+            line=dict(color='#00AA00', width=2, dash='dash'),
+        )
 
     fig.update_layout(
         plot_bgcolor='#FFFFFF',
@@ -457,13 +457,11 @@ with tab1:
 
     # Highlight selected week
     fig = make_forecast_chart(selected_kec)
-    fig.add_vline(
-        x=fc_row['ds'],
-        line_dash='dot',
-        line_color='#CC0000',
-        line_width=2,
-        annotation_text=f'Selected: {fc_row["ds"].strftime("%d %b %Y")}',
-        annotation_font_color='#CC0000',
+    fig.add_shape(
+        type='line',
+        x0=str(fc_row['ds']), x1=str(fc_row['ds']),
+        y0=0, y1=1, yref='paper',
+        line=dict(color='#CC0000', width=2, dash='dot'),
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -638,11 +636,11 @@ with tab3:
             marker_line_width=0.5,
         ))
 
-    fig_comp.add_hline(
-        y=15, line_dash='dash',
-        line_color='#CC0000', line_width=1.5,
-        annotation_text='15% threshold',
-        annotation_font_color='#CC0000',
+    fig_comp.add_shape(
+        type='line',
+        x0=0, x1=1, xref='paper',
+        y0=15, y1=15,
+        line=dict(color='#CC0000', width=1.5, dash='dash'),
     )
     fig_comp.update_layout(
         barmode='group',
@@ -706,9 +704,11 @@ with tab4:
             text=df_validation['MAPE (%)'].apply(lambda x: f'{x:.1f}%'),
             textposition='outside',
         ))
-        fig_val.add_hline(
-            y=15, line_dash='dash',
-            line_color='#CC0000', line_width=1.5,
+        fig_val.add_shape(
+            type='line',
+            x0=0, x1=1, xref='paper',
+            y0=15, y1=15,
+            line=dict(color='#CC0000', width=1.5, dash='dash'),
         )
         fig_val.update_layout(
             plot_bgcolor='#FFFFFF',
