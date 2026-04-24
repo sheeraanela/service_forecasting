@@ -318,7 +318,6 @@ def make_forecast_chart(kec, show_actual=False, actual_df=None):
             bordercolor='#0D0D0D', borderwidth=1,
             font=dict(size=10),
         ),
-            height=480,
         xaxis=dict(
             showgrid=True, gridcolor='#F0F0F0',
             tickformat='%b %Y',
@@ -329,8 +328,8 @@ def make_forecast_chart(kec, show_actual=False, actual_df=None):
             title='Services / Week',
             linecolor='#0D0D0D', linewidth=2,
         ),
-        height=420,
-        margin=dict(l=20, r=20, t=20, b=20),
+        height=480,
+        margin=dict(l=20, r=20, t=20, b=80),
     )
     return fig
 
