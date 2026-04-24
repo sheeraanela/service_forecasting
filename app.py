@@ -207,6 +207,10 @@ def load_assets():
     dfs_smooth['Tanggal Servis'] = pd.to_datetime(dfs_smooth['Tanggal Servis'])
     df_comparison = pd.read_csv(f"{base}/model_comparison.csv")
     df_validation = pd.read_csv(f"{base}/validation_metrics.csv")
+
+    # Convert forecast ds to datetime safely
+    for kec in forecast_results:
+        forecast_results[kec]['ds'] = pd.to_datetime(forecast_results[kec]['ds'])
     return lgb_models, forecast_results, shap_results, config, dfs_smooth, df_comparison, df_validation
 
 lgb_models, forecast_results, shap_results, config, dfs_smooth, df_comparison, df_validation = load_assets()
@@ -217,7 +221,7 @@ KEC_COLORS  = config['KEC_COLORS']
 BEST_MODEL  = config['BEST_MODEL_NAME']
 KEC_COLOR_MAP = dict(zip(TOP5, KEC_COLORS))
 
-LEBARAN_DATES = {yr: pd.Timestamp(v[0]) for yr, v in LEBARAN.items()}
+LEBARAN_DATES = {yr: v[0] for yr, v in LEBARAN.items()}  # keep as strings
 
 # ── Helper functions ──────────────────────────────────────────────────────────
 def get_shap_explanation(kec, week_idx):
@@ -251,15 +255,17 @@ def make_forecast_chart(kec, show_actual=False, actual_df=None):
 
     # Historical bars
     fig.add_trace(go.Bar(
-        x=hist['Tanggal Servis'], y=hist['Jumlah Servis'],
+        x=hist['Tanggal Servis'].astype(str), y=hist['Jumlah Servis'],
         name='Historical 2025',
         marker_color='#B5D4F4', opacity=0.7,
         width=5 * 86400000,
     ))
 
+    fc_ds_str = fc['ds'].astype(str)
+
     # Confidence band
     fig.add_trace(go.Scatter(
-        x=pd.concat([fc['ds'], fc['ds'][::-1]]),
+        x=pd.concat([fc['ds'].astype(str), fc['ds'].astype(str)[::-1]]),
         y=pd.concat([fc['optimistic'], fc['pessimistic'][::-1]]),
         fill='toself',
         fillcolor='rgba(204,0,0,0.1)',
@@ -270,21 +276,21 @@ def make_forecast_chart(kec, show_actual=False, actual_df=None):
 
     # Pessimistic
     fig.add_trace(go.Scatter(
-        x=fc['ds'], y=fc['pessimistic'],
+        x=fc_ds_str, y=fc['pessimistic'],
         mode='lines', name='Pessimistic -16%',
         line=dict(color='#AAAAAA', dash='dash', width=1.5),
     ))
 
     # Optimistic
     fig.add_trace(go.Scatter(
-        x=fc['ds'], y=fc['optimistic'],
+        x=fc_ds_str, y=fc['optimistic'],
         mode='lines', name='Optimistic +18%',
         line=dict(color='#3B6D11', dash='dash', width=1.5),
     ))
 
     # Forecast line
     fig.add_trace(go.Scatter(
-        x=fc['ds'], y=fc['forecast'],
+        x=fc_ds_str, y=fc['forecast'],
         mode='lines', name=f'Forecast ({BEST_MODEL})',
         line=dict(color=color, width=3),
     ))
