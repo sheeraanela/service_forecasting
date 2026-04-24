@@ -318,7 +318,7 @@ def make_forecast_chart(kec, show_actual=False, actual_df=None):
             bordercolor='#0D0D0D', borderwidth=1,
             font=dict(size=10),
         ),
-        height=480,
+            height=480,
         xaxis=dict(
             showgrid=True, gridcolor='#F0F0F0',
             tickformat='%b %Y',
