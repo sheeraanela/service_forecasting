@@ -309,11 +309,16 @@ def make_forecast_chart(kec, show_actual=False, actual_df=None):
         paper_bgcolor='#FFFFFF',
         font=dict(color='#0D0D0D', family='IBM Plex Sans'),
         legend=dict(
-            orientation='h', yanchor='bottom',
-            y=1.02, xanchor='right', x=1,
+            orientation='h',
+            yanchor='top',
+            y=-0.15,
+            xanchor='center',
+            x=0.5,
             bgcolor='rgba(255,255,255,0.9)',
             bordercolor='#0D0D0D', borderwidth=1,
+            font=dict(size=10),
         ),
+        height=480,
         xaxis=dict(
             showgrid=True, gridcolor='#F0F0F0',
             tickformat='%b %Y',
