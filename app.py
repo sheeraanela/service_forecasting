@@ -12,9 +12,8 @@ st.set_page_config(
     page_title="AHASS Demand Forecasting",
     page_icon="",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded",  # already set
 )
-
 # ── Custom CSS ────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -30,7 +29,8 @@ st.markdown("""
     section[data-testid="stSidebar"] {
         background-color: #CC0000 !important;
         border-right: 2px solid #0D0D0D;
-        min-width: 260px !important;
+        min-width: 240px !important;
+        max-width: 240px !important;  /* ← add this line */
     }
     section[data-testid="stSidebar"] * { color: #FFFFFF !important; font-family: 'DM Sans', sans-serif !important; }
     section[data-testid="stSidebar"] .stSelectbox > div > div {
@@ -281,7 +281,8 @@ tab1, tab2, tab3, tab4 = st.tabs(["FORECAST", "XAI EXPLANATION", "MODEL COMPARIS
 with tab1:
     fc_row = fc_data.iloc[selected_week_idx]
     c1, c2, c3, c4 = st.columns(4)
-    with c1: st.metric("Kecamatan", selected_kec)
+    # Change this line in tab1:
+    with c1: st.metric("Kecamatan", selected_kec.replace("KECAMATAN_", "KEC. "))
     with c2: st.metric("Base Forecast", f"{fc_row['forecast']:,.0f}", help="services / week")
     with c3: st.metric("Optimistic +18%", f"{fc_row['optimistic']:,.0f}")
     with c4: st.metric("Pessimistic -16%", f"{fc_row['pessimistic']:,.0f}")
