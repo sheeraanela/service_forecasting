@@ -34,7 +34,6 @@ st.markdown("""
     .stTabs [aria-selected="true"] { background-color: #CC0000 !important; color: #FFFFFF !important; }
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     button[data-testid="baseButton-headerNoPadding"] { display: none !important; }
-    [data-testid="collapsedControl"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
