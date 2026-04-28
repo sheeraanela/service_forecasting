@@ -7,45 +7,20 @@ import shap
 import matplotlib
 matplotlib.use('Agg')
 
-# ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="AHASS Demand Forecasting",
-    page_icon="",
     layout="wide",
-    initial_sidebar_state="expanded",  # already set
+    initial_sidebar_state="collapsed",
 )
-# ── Custom CSS ────────────────────────────────────────────────────────────────
+
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap');
-
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
     html, body, [class*="css"], p, span, div, label, h1, h2, h3, h4 {
         font-family: 'DM Sans', sans-serif !important;
         color: #0D0D0D;
     }
     .stApp { background-color: #FFFFFF; }
-
-    /* Sidebar */
-    section[data-testid="stSidebar"] {
-        background-color: #CC0000 !important;
-        border-right: 2px solid #0D0D0D;
-        min-width: 240px !important;
-        max-width: 240px !important;  /* ← add this line */
-    }
-    section[data-testid="stSidebar"] * { color: #FFFFFF !important; font-family: 'DM Sans', sans-serif !important; }
-    section[data-testid="stSidebar"] .stSelectbox > div > div {
-        background-color: #FFFFFF !important;
-        color: #0D0D0D !important;
-        border: 1.5px solid #0D0D0D;
-        border-radius: 0;
-    }
-    section[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,0.3) !important; }
-
-    /* Hide sidebar toggle */
-    button[data-testid="baseButton-headerNoPadding"] { display: none !important; }
-    [data-testid="collapsedControl"] { display: none !important; }
-
-    /* Header */
     .main-header {
         background-color: #CC0000;
         padding: 2rem 2.5rem;
@@ -54,81 +29,48 @@ st.markdown("""
     }
     .main-header h1 {
         font-family: 'DM Sans', sans-serif !important;
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: #FFFFFF !important;
-        letter-spacing: 1px;
-        margin: 0;
-        line-height: 1.2;
+        font-size: 2.2rem; font-weight: 700;
+        color: #FFFFFF !important; letter-spacing: 1px; margin: 0; line-height: 1.2;
     }
-    .main-header p {
-        color: rgba(255,255,255,0.8) !important;
-        font-size: 0.9rem;
-        margin: 0.4rem 0 0 0;
-        font-weight: 400;
+    .main-header p { color: rgba(255,255,255,0.8) !important; font-size: 0.9rem; margin: 0.4rem 0 0 0; }
+    .control-bar {
+        background-color: #F8F8F8;
+        border: 1.5px solid #DDDDDD;
+        border-left: 4px solid #CC0000;
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
     }
-
-    /* Section headers */
     .section-header {
         font-family: 'DM Sans', sans-serif !important;
-        font-size: 1.1rem;
-        font-weight: 700;
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
-        color: #0D0D0D !important;
-        border-bottom: 2px solid #CC0000;
-        padding-bottom: 0.5rem;
-        margin: 2rem 0 1rem 0;
+        font-size: 1.1rem; font-weight: 700; letter-spacing: 1.5px;
+        text-transform: uppercase; color: #0D0D0D !important;
+        border-bottom: 2px solid #CC0000; padding-bottom: 0.5rem; margin: 2rem 0 1rem 0;
     }
-
-    /* Tabs */
     .stTabs [data-baseweb="tab-list"] { border-bottom: 2px solid #CC0000; gap: 0; }
     .stTabs [data-baseweb="tab"] {
-        background-color: #FFFFFF;
-        color: #0D0D0D !important;
-        font-weight: 600;
-        font-size: 0.85rem;
-        letter-spacing: 0.5px;
-        border: 1.5px solid #0D0D0D;
-        border-bottom: none;
-        padding: 0.5rem 1.2rem;
-        border-radius: 0;
+        background-color: #FFFFFF; color: #0D0D0D !important;
+        font-weight: 600; font-size: 0.85rem; letter-spacing: 0.5px;
+        border: 1.5px solid #0D0D0D; border-bottom: none;
+        padding: 0.5rem 1.2rem; border-radius: 0;
         font-family: 'DM Sans', sans-serif !important;
     }
-    .stTabs [aria-selected="true"] {
-        background-color: #CC0000 !important;
-        color: #FFFFFF !important;
-    }
-
-    /* Metrics */
-    [data-testid="stMetricValue"] {
-        font-family: 'DM Sans', sans-serif !important;
-        font-weight: 700;
-        color: #CC0000 !important;
-    }
+    .stTabs [aria-selected="true"] { background-color: #CC0000 !important; color: #FFFFFF !important; }
+    [data-testid="stMetricValue"] { font-family: 'DM Sans', sans-serif !important; font-weight: 700; color: #CC0000 !important; }
     [data-testid="stMetricLabel"] {
-        font-family: 'DM Sans', sans-serif !important;
-        font-weight: 500;
-        color: #0D0D0D !important;
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        font-family: 'DM Sans', sans-serif !important; font-weight: 500;
+        color: #0D0D0D !important; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;
     }
-
-    /* Info box */
+    div[data-testid="stSelectbox"] label {
+        font-weight: 600 !important; font-size: 0.8rem !important;
+        text-transform: uppercase !important; letter-spacing: 0.5px !important; color: #0D0D0D !important;
+    }
     .xai-note {
-        background: #F8F8F8;
-        border-left: 3px solid #CC0000;
-        padding: 0.8rem 1rem;
-        font-size: 0.85rem;
-        color: #333;
-        margin-top: 1rem;
+        background: #F8F8F8; border-left: 3px solid #CC0000;
+        padding: 0.8rem 1rem; font-size: 0.85rem; color: #333; margin-top: 1rem;
     }
-
-    /* Hide streamlit defaults */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+    #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
+    section[data-testid="stSidebar"] {display: none !important;}
+    [data-testid="collapsedControl"] {display: none !important;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -165,12 +107,9 @@ FEAT_COLS     = config.get('FEAT_COLS', [
 KEC_COLOR_MAP = dict(zip(TOP5, KEC_COLORS))
 LEBARAN_STR   = {yr: v[0] for yr, v in LEBARAN.items()}
 
-# Shared Plotly layout
 LEGEND = dict(
-    orientation='h', yanchor='top', y=-0.18,
-    xanchor='center', x=0.5,
-    bgcolor='rgba(255,255,255,0.95)',
-    bordercolor='#DDDDDD', borderwidth=1,
+    orientation='h', yanchor='top', y=-0.18, xanchor='center', x=0.5,
+    bgcolor='rgba(255,255,255,0.95)', bordercolor='#DDDDDD', borderwidth=1,
     font=dict(size=10, color='#0D0D0D', family='DM Sans'),
 )
 
@@ -188,14 +127,12 @@ def base_layout(**kwargs):
     d.update(kwargs)
     return d
 
-# ── Forecast chart ────────────────────────────────────────────────────────────
 def make_forecast_chart(kec, sel_idx=None):
     fc    = forecast_results[kec]
     hist  = dfs_smooth[dfs_smooth['Kecamatan Bengkel'] == kec].tail(26)
     color = KEC_COLOR_MAP[kec]
     fc_ds = fc['ds'].astype(str)
-
-    fig = go.Figure()
+    fig   = go.Figure()
     fig.add_trace(go.Bar(x=hist['Tanggal Servis'].astype(str), y=hist['Jumlah Servis'],
                          name='Historical 2025', marker_color='#D6E8FA', opacity=0.8))
     fig.add_trace(go.Scatter(
@@ -209,16 +146,14 @@ def make_forecast_chart(kec, sel_idx=None):
                              name='Optimistic +18%', line=dict(color='#3B6D11', dash='dash', width=1.5)))
     fig.add_trace(go.Scatter(x=fc_ds, y=fc['forecast'], mode='lines',
                              name='Forecast (LightGBM)', line=dict(color=color, width=2.5)))
-
     lb26 = LEBARAN_STR.get(2026)
     if lb26:
         fig.add_shape(type='line', x0=lb26, x1=lb26, y0=0, y1=1, yref='paper',
                       line=dict(color='#00AA00', width=1.5, dash='dash'))
     if sel_idx is not None:
-        sel_ds = str(fc['ds'].iloc[sel_idx])
-        fig.add_shape(type='line', x0=sel_ds, x1=sel_ds, y0=0, y1=1, yref='paper',
+        fig.add_shape(type='line', x0=str(fc['ds'].iloc[sel_idx]),
+                      x1=str(fc['ds'].iloc[sel_idx]), y0=0, y1=1, yref='paper',
                       line=dict(color='#CC0000', width=1.5, dash='dot'))
-
     fig.update_layout(**base_layout(
         height=460,
         xaxis=dict(tickformat='%b %Y', showgrid=True, gridcolor='#F0F0F0',
@@ -228,7 +163,6 @@ def make_forecast_chart(kec, sel_idx=None):
     ))
     return fig
 
-# ── SHAP bar ──────────────────────────────────────────────────────────────────
 def make_shap_bar(kec):
     sr        = shap_results[kec]
     mean_shap = np.abs(sr['shap_values']).mean(axis=0)
@@ -252,36 +186,30 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("### Controls")
-    st.markdown("---")
-    selected_kec        = st.selectbox("Kecamatan", options=TOP5, index=0)
-    fc_data             = forecast_results[selected_kec]
-    week_options        = [f"Week {i+1} — {d.strftime('%d %b %Y')}" for i, d in enumerate(fc_data['ds'])]
+# ── Control bar ───────────────────────────────────────────────────────────────
+st.markdown('<div class="control-bar">', unsafe_allow_html=True)
+col_ctrl1, col_ctrl2, col_ctrl3 = st.columns([2, 3, 2])
+with col_ctrl1:
+    selected_kec = st.selectbox("Kecamatan", options=TOP5, index=0)
+with col_ctrl2:
+    fc_data      = forecast_results[selected_kec]
+    week_options = [f"Week {i+1} — {d.strftime('%d %b %Y')}" for i, d in enumerate(fc_data['ds'])]
     selected_week_label = st.selectbox("Forecast Week", options=week_options, index=0)
     selected_week_idx   = week_options.index(selected_week_label)
-    st.markdown("---")
-    st.markdown("### Model Info")
-    st.markdown("**Best Model:** LightGBM")
-    st.markdown(f"**Features:** {len(FEAT_COLS)} lag + calendar")
-    st.markdown("**Training:** 2022 – 2024")
-    st.markdown("**Test:** 2025")
-    st.markdown("---")
-    st.markdown("### 2025 Test MAPE")
-    st.markdown(f"**{selected_kec}:** `{lgb_models[selected_kec]['mape']*100:.1f}%`")
-    st.markdown("---")
-    st.markdown("### About")
-    st.markdown("Thesis project — Wahana Artha · 2025")
+with col_ctrl3:
+    st.markdown(f"**Best Model:** LightGBM")
+    st.markdown(f"**Training:** 2022 – 2024  &nbsp;·&nbsp;  **Test:** 2025")
+    st.markdown(f"**{selected_kec} Test MAPE:** `{lgb_models[selected_kec]['mape']*100:.1f}%`")
+st.markdown('</div>', unsafe_allow_html=True)
+st.markdown("---")
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4 = st.tabs(["FORECAST", "XAI EXPLANATION", "MODEL COMPARISON", "2026 VALIDATION"])
 
-# ═══ TAB 1 — FORECAST ════════════════════════════════════════════════════════
+# ═══ TAB 1 ═══════════════════════════════════════════════════════════════════
 with tab1:
     fc_row = fc_data.iloc[selected_week_idx]
     c1, c2, c3, c4 = st.columns(4)
-    # Change this line in tab1:
     with c1: st.metric("Kecamatan", selected_kec.replace("KECAMATAN_", "KEC. "))
     with c2: st.metric("Base Forecast", f"{fc_row['forecast']:,.0f}", help="services / week")
     with c3: st.metric("Optimistic +18%", f"{fc_row['optimistic']:,.0f}")
@@ -295,11 +223,12 @@ with tab1:
     for i, (kec, color) in enumerate(zip(TOP5, KEC_COLORS)):
         fc_kec = forecast_results[kec]
         with cols[i]:
-            st.metric(kec, f"{fc_kec['forecast'].mean():,.0f}",
+            st.metric(kec.replace("KECAMATAN_", "KEC. "),
+                      f"{fc_kec['forecast'].mean():,.0f}",
                       delta=f"annual {fc_kec['forecast'].sum():,.0f}")
             st.caption(f"Test MAPE = {lgb_models[kec]['mape']*100:.1f}%")
 
-# ═══ TAB 2 — XAI ══════════════════════════════════════════════════════════════
+# ═══ TAB 2 ═══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown('<div class="section-header">Explainable AI — Why This Forecast?</div>', unsafe_allow_html=True)
     st.markdown("SHAP (SHapley Additive exPlanations) identifies which features drove this prediction and by how much.")
@@ -360,7 +289,7 @@ with tab2:
     ))
     st.plotly_chart(fig_all, use_container_width=True)
 
-# ═══ TAB 3 — MODEL COMPARISON ════════════════════════════════════════════════
+# ═══ TAB 3 ═══════════════════════════════════════════════════════════════════
 with tab3:
     st.markdown('<div class="section-header">Model Comparison — Test Period 2025</div>', unsafe_allow_html=True)
 
@@ -368,11 +297,9 @@ with tab3:
     for model_name in df_comparison['Model'].unique():
         sub = df_comparison[df_comparison['Model'] == model_name]
         avg_rows.append({
-            'Model':        model_name,
-            'Avg MAPE (%)': round(sub['MAPE (%)'].mean(), 1),
-            'Avg RMSE':     int(sub['RMSE'].mean()),
-            'Avg MAE':      int(sub['MAE'].mean()),
-            'Avg R2':       round(sub['R2'].mean(), 3),
+            'Model': model_name, 'Avg MAPE (%)': round(sub['MAPE (%)'].mean(), 1),
+            'Avg RMSE': int(sub['RMSE'].mean()), 'Avg MAE': int(sub['MAE'].mean()),
+            'Avg R2': round(sub['R2'].mean(), 3),
         })
     df_avg = pd.DataFrame(avg_rows).sort_values('Avg MAPE (%)')
 
@@ -403,7 +330,7 @@ with tab3:
     st.dataframe(df_comparison.sort_values(['Kecamatan', 'MAPE (%)']),
                  use_container_width=True, height=350)
 
-# ═══ TAB 4 — 2026 VALIDATION ══════════════════════════════════════════════════
+# ═══ TAB 4 ═══════════════════════════════════════════════════════════════════
 with tab4:
     st.markdown('<div class="section-header">2026 Out-of-Sample Validation</div>', unsafe_allow_html=True)
     st.info("Validation against actual 2026 data (January – March 2026). Missing weeks (Feb 9–23) filled with mean. Lebaran weeks reported separately due to extreme demand volatility.")
@@ -440,4 +367,4 @@ with tab4:
     with c2:
         st.warning("**Higher Error**\n\nKECAMATAN_A and C showed higher errors attributed to demand volatility exceeding historical patterns.")
     with c3:
-        st.error("**Lebaran Effect**\n\nMAPE of 29–75% during Lebaran weeks. Holiday demand drops fell outside the model's training range.")
+        st.error("**Lebaran Effect**\n\nMAPE of 29–75% during Lebaran weeks. Holiday demand drops fell outside the model training range.")
