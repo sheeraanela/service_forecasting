@@ -187,25 +187,58 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Control bar ───────────────────────────────────────────────────────────────
-col_ctrl1, col_ctrl2, col_ctrl3 = st.columns([2, 3, 2])
-with col_ctrl1:
-    selected_kec = st.selectbox("Kecamatan", options=TOP5, index=0)
-with col_ctrl2:
-    fc_data      = forecast_results[selected_kec]
-    week_options = [f"Week {i+1} — {d.strftime('%d %b %Y')}" for i, d in enumerate(fc_data['ds'])]
-    selected_week_label = st.selectbox("Forecast Week", options=week_options, index=0)
-    selected_week_idx   = week_options.index(selected_week_label)
-with col_ctrl3:
-    mape_val = lgb_models[selected_kec]['mape'] * 100
-    st.markdown(f"""
-    <div style="background:#CC0000;padding:1rem 1.2rem;border-radius:0;">
-        <div style="color:#FFFFFF;font-size:0.75rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:0.3rem">Model Info</div>
-        <div style="color:#FFFFFF;font-size:0.9rem;">Best Model: <strong>LightGBM</strong></div>
-        <div style="color:rgba(255,255,255,0.8);font-size:0.85rem;">Training: 2022–2024 · Test: 2025</div>
-        <div style="color:#FFD0D0;font-size:0.85rem;margin-top:0.3rem">{selected_kec} MAPE: <strong>{mape_val:.1f}%</strong></div>
+# ── Control bar ───────────────────────────────────────────────────────────────
+selected_kec = st.selectbox("", options=TOP5, index=0, label_visibility="collapsed")
+fc_data      = forecast_results[selected_kec]
+week_options = [f"Week {i+1} — {d.strftime('%d %b %Y')}" for i, d in enumerate(fc_data['ds'])]
+selected_week_label = st.selectbox("", options=week_options, index=0, label_visibility="collapsed")
+selected_week_idx   = week_options.index(selected_week_label)
+mape_val = lgb_models[selected_kec]['mape'] * 100
+
+st.markdown(f"""
+<div style="background:#CC0000;padding:1.2rem 2rem;margin-bottom:1.5rem;
+            display:flex;align-items:center;gap:3rem;flex-wrap:wrap;">
+    <div>
+        <div style="color:rgba(255,255,255,0.7);font-size:0.7rem;font-weight:600;
+                    letter-spacing:1.5px;text-transform:uppercase;margin-bottom:0.2rem">
+            Kecamatan
+        </div>
+        <div style="color:#FFFFFF;font-size:1.1rem;font-weight:700">{selected_kec}</div>
     </div>
-    """, unsafe_allow_html=True)
-st.markdown("---")
+    <div style="width:1px;background:rgba(255,255,255,0.3);height:40px"></div>
+    <div>
+        <div style="color:rgba(255,255,255,0.7);font-size:0.7rem;font-weight:600;
+                    letter-spacing:1.5px;text-transform:uppercase;margin-bottom:0.2rem">
+            Forecast Week
+        </div>
+        <div style="color:#FFFFFF;font-size:1.1rem;font-weight:700">{selected_week_label}</div>
+    </div>
+    <div style="width:1px;background:rgba(255,255,255,0.3);height:40px"></div>
+    <div>
+        <div style="color:rgba(255,255,255,0.7);font-size:0.7rem;font-weight:600;
+                    letter-spacing:1.5px;text-transform:uppercase;margin-bottom:0.2rem">
+            Best Model
+        </div>
+        <div style="color:#FFFFFF;font-size:1.1rem;font-weight:700">LightGBM</div>
+    </div>
+    <div style="width:1px;background:rgba(255,255,255,0.3);height:40px"></div>
+    <div>
+        <div style="color:rgba(255,255,255,0.7);font-size:0.7rem;font-weight:600;
+                    letter-spacing:1.5px;text-transform:uppercase;margin-bottom:0.2rem">
+            Training / Test
+        </div>
+        <div style="color:#FFFFFF;font-size:1.1rem;font-weight:700">2022–2024 / 2025</div>
+    </div>
+    <div style="width:1px;background:rgba(255,255,255,0.3);height:40px"></div>
+    <div>
+        <div style="color:rgba(255,255,255,0.7);font-size:0.7rem;font-weight:600;
+                    letter-spacing:1.5px;text-transform:uppercase;margin-bottom:0.2rem">
+            {selected_kec} Test MAPE
+        </div>
+        <div style="color:#FFD0D0;font-size:1.1rem;font-weight:700">{mape_val:.1f}%</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4 = st.tabs(["FORECAST", "XAI EXPLANATION", "MODEL COMPARISON", "2026 VALIDATION"])
