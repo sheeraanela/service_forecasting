@@ -187,7 +187,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Control bar ───────────────────────────────────────────────────────────────
-st.markdown('<div class="control-bar">', unsafe_allow_html=True)
 col_ctrl1, col_ctrl2, col_ctrl3 = st.columns([2, 3, 2])
 with col_ctrl1:
     selected_kec = st.selectbox("Kecamatan", options=TOP5, index=0)
@@ -197,10 +196,15 @@ with col_ctrl2:
     selected_week_label = st.selectbox("Forecast Week", options=week_options, index=0)
     selected_week_idx   = week_options.index(selected_week_label)
 with col_ctrl3:
-    st.markdown(f"**Best Model:** LightGBM")
-    st.markdown(f"**Training:** 2022 – 2024  &nbsp;·&nbsp;  **Test:** 2025")
-    st.markdown(f"**{selected_kec} Test MAPE:** `{lgb_models[selected_kec]['mape']*100:.1f}%`")
-st.markdown('</div>', unsafe_allow_html=True)
+    mape_val = lgb_models[selected_kec]['mape'] * 100
+    st.markdown(f"""
+    <div style="background:#CC0000;padding:1rem 1.2rem;border-radius:0;">
+        <div style="color:#FFFFFF;font-size:0.75rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:0.3rem">Model Info</div>
+        <div style="color:#FFFFFF;font-size:0.9rem;">Best Model: <strong>LightGBM</strong></div>
+        <div style="color:rgba(255,255,255,0.8);font-size:0.85rem;">Training: 2022–2024 · Test: 2025</div>
+        <div style="color:#FFD0D0;font-size:0.85rem;margin-top:0.3rem">{selected_kec} MAPE: <strong>{mape_val:.1f}%</strong></div>
+    </div>
+    """, unsafe_allow_html=True)
 st.markdown("---")
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
