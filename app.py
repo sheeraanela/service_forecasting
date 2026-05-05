@@ -22,16 +22,25 @@ html, body, [class*="css"], p, span, div, label, h1, h2, h3, h4 {
     color: #0D0D0D;
 }
 
-/* ── Background ── */
+/* ── Background & hard reset ── */
 .stApp { background-color: #FFFFFF; }
+
+/* Kill every possible source of top gap Streamlit injects */
+.stApp > div { padding-top: 0 !important; margin-top: 0 !important; }
+.main { padding: 0 !important; margin: 0 !important; }
+.main > div { padding: 0 !important; margin: 0 !important; }
 .main .block-container {
-    padding: 0 !important;
-    max-width: 100% !important;
+    padding: 0 !important; margin: 0 !important;
+    max-width: 100% !important; min-width: 100% !important;
 }
-/* Kill the default top gap Streamlit injects */
-.main .block-container > div:first-child { padding-top: 0 !important; margin-top: 0 !important; }
-section.main > div { padding-top: 0 !important; }
-[data-testid="stAppViewBlockContainer"] { padding-top: 0 !important; }
+.block-container > div { padding: 0 !important; margin: 0 !important; }
+section[data-testid="stMain"] { padding: 0 !important; margin: 0 !important; }
+[data-testid="stAppViewBlockContainer"] { padding: 0 !important; margin: 0 !important; }
+[data-testid="stVerticalBlock"] { gap: 0 !important; }
+/* The first child markdown that contains the header should have no margin */
+[data-testid="stVerticalBlock"] > [data-testid="element-container"]:first-child {
+    margin: 0 !important; padding: 0 !important;
+}
 
 /* ── Hide chrome ── */
 #MainMenu, footer, header { visibility: hidden !important; }
@@ -47,11 +56,6 @@ section[data-testid="stSidebar"] { display: none !important; }
     padding: 2.2rem 3rem;
     margin: 0;
 }
-/* Extra kill for Streamlit top padding */
-div[data-testid="stAppViewBlockContainer"] { padding-top: 0 !important; margin-top: 0 !important; }
-div[data-testid="stVerticalBlock"] > div:first-child > div[data-testid="stMarkdownContainer"] > div > .main-header {
-    margin-top: -4rem !important;
-}
 .main-header h1 {
     font-size: 2.4rem; font-weight: 700; color: #FFFFFF !important;
     letter-spacing: 1.5px; margin: 0 0 0.5rem 0; line-height: 1.2;
@@ -59,16 +63,34 @@ div[data-testid="stVerticalBlock"] > div:first-child > div[data-testid="stMarkdo
 }
 .main-header p { color: rgba(255,255,255,0.75) !important; font-size: 0.88rem; margin: 0; }
 
-/* ── CONTENT WRAPPER ── */
-.content { padding: 0 3rem 3rem 3rem; }
+/* ── CONTENT padding ── */
+.content-start { display: none; }
 
-/* ── CONTROL BAR ── */
+/* Style the Streamlit horizontal block (columns) that holds controls */
+[data-testid="stHorizontalBlock"]:first-of-type {
+    background: #F8F8F8;
+    border: 1px solid #E5E5E5;
+    border-left: 4px solid #CC0000;
+    padding: 0.8rem 1.5rem;
+    margin: 1rem 3rem 1rem 3rem;
+    gap: 2rem;
+}
+
+/* All content below header gets side padding */
+section[data-testid="stMain"] > div > [data-testid="stVerticalBlock"] > [data-testid="element-container"]:not(:first-child),
+section[data-testid="stMain"] > div > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"],
+section[data-testid="stMain"] > div > [data-testid="stVerticalBlock"] > [data-testid="stTabs"] {
+    padding-left: 3rem !important;
+    padding-right: 3rem !important;
+}
+
+/* CONTROL BAR — kept for any remaining uses */
 .ctrl-bar {
     background: #F8F8F8;
     border: 1px solid #E5E5E5;
     border-left: 4px solid #CC0000;
     padding: 1.1rem 1.5rem;
-    margin: 1rem 0 1.2rem 0;
+    margin: 0.8rem 0 1.2rem 0;
 }
 
 /* ── Selectbox ── */
@@ -168,8 +190,8 @@ div[data-testid="stSelectbox"] > div > div {
 [data-testid="column"]:first-child { padding-left: 0 !important; }
 [data-testid="column"]:last-child  { padding-right: 0 !important; }
 
-/* ── Divider ── */
-hr { border: none; border-top: 1px solid #EEEEEE; margin: 1.5rem 0; }
+/* ── Content area horizontal padding ── */
+.content-pad { padding: 0 3rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -356,15 +378,13 @@ st.markdown("""
   <h1>AHASS Prakiraan Permintaan</h1>
   <p>Prakiraan Permintaan Servis Mingguan — Top 5 District Jakarta &nbsp;·&nbsp; LightGBM + SHAP XAI</p>
 </div>
+<div class="content-start"></div>
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# CONTENT
+# CONTROLS — no wrapping HTML div, styled via CSS on the column container
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="content">', unsafe_allow_html=True)
-
-# ── Controls ──
-st.markdown('<div class="ctrl-bar">', unsafe_allow_html=True)
+st.markdown('<div class="content-pad">', unsafe_allow_html=True)
 cc1, cc2, cc3 = st.columns([2, 4, 2])
 with cc1:
     selected_kec = st.selectbox("District", options=TOP5, format_func=dist_label, index=0)
@@ -381,7 +401,8 @@ with cc3:
         f"<p style='margin:0;font-size:0.85rem'><strong>{dist_label(selected_kec)} Test MAPE:</strong> "
         f"<span style='color:#CC0000;font-weight:700'>{mape_pct:.1f}%</span></p>",
         unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown("<hr style='margin:0.8rem 0;border:none;border-top:1px solid #EEEEEE'>", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TABS
@@ -487,5 +508,3 @@ with tab2:
 
     st.markdown('<div class="sec-head">Kamus Fitur — Penjelasan Lengkap</div>', unsafe_allow_html=True)
     st.dataframe(FEAT_TABLE, use_container_width=True, hide_index=True, height=530)
-
-st.markdown('</div>', unsafe_allow_html=True)
