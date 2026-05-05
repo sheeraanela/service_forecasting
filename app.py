@@ -125,14 +125,18 @@ def load():
     with open(f"{b}/config.pkl",          "rb") as f: cfg   = pickle.load(f)
     df = pd.read_csv(f"{b}/dfs_smooth.csv")
     df['Tanggal Servis'] = pd.to_datetime(df['Tanggal Servis'])
+    dv = pd.read_csv(f"{b}/validation_metrics.csv")
     for k in fcr: fcr[k]['ds'] = pd.to_datetime(fcr[k]['ds'])
-    return lgb, fcr, shap, cfg, df
+    return lgb, fcr, shap, cfg, df, dv
 
-lgb, fcr, shap_res, cfg, hist_df = load()
+lgb, fcr, shap_res, cfg, hist_df, df_val_raw = load()
 TOP5     = cfg['TOP5']
 COLORS   = cfg['KEC_COLORS']
 CMAP     = dict(zip(TOP5, COLORS))
 LEB      = {yr: v[0] for yr, v in cfg['LEBARAN'].items()}
+
+df_val = df_val_raw.copy()
+df_val['District'] = df_val['Kecamatan'].apply(dlabel)
 
 def plotly_base(h=400, **kw):
     d = dict(plot_bgcolor='#fff', paper_bgcolor='#fff',
@@ -185,7 +189,7 @@ st.markdown("</div>", unsafe_allow_html=True)
 
 # ── TABS ───────────────────────────────────────────────────────────────────────
 row = fc.iloc[wk_idx]
-tab1, tab2 = st.tabs(["PRAKIRAAN", "PENJELASAN XAI"])
+tab1, tab2, tab3 = st.tabs(["PRAKIRAAN", "PENJELASAN XAI", "VALIDASI 2026"])
 
 # ═══ TAB 1 ════════════════════════════════════════════════════════════════════
 with tab1:
@@ -351,3 +355,144 @@ with tab2:
     # Feature table
     st.markdown('<div class="sec">Kamus Fitur — Penjelasan Lengkap</div>', unsafe_allow_html=True)
     st.dataframe(FEAT_TABLE, use_container_width=True, hide_index=True, height=530)
+
+# ═══ TAB 3 — VALIDASI 2026 ════════════════════════════════════════════════════
+with tab3:
+    st.markdown('<div class="sec">Validasi Luar Sampel — Januari s.d. Maret 2026</div>',
+                unsafe_allow_html=True)
+    st.markdown(
+        "<p style='font-size:0.83rem;color:#555;margin:-0.5rem 0 1.4rem 0'>"
+        "Evaluasi performa model LightGBM terhadap data aktual 13 minggu pertama 2026 "
+        "(Jan–Mar). Minggu Lebaran dilaporkan terpisah karena volatilitas ekstrem.</p>",
+        unsafe_allow_html=True)
+
+    # ── KPI strip — avg MAPE, best district, worst district ──
+    avg_mape = df_val['MAPE (%)'].mean()
+    best     = df_val.loc[df_val['MAPE (%)'].idxmin()]
+    worst    = df_val.loc[df_val['MAPE (%)'].idxmax()]
+    k1, k2, k3, k4 = st.columns(4)
+    with k1: st.metric("Rata-rata MAPE",    f"{avg_mape:.1f}%")
+    with k2: st.metric("District Terbaik",  f"{dlabel(best['Kecamatan'])}",
+                       delta=f"MAPE {best['MAPE (%)']:.1f}%")
+    with k3: st.metric("District Terlemah", f"{dlabel(worst['Kecamatan'])}",
+                       delta=f"MAPE {worst['MAPE (%)']:.1f}%", delta_color="inverse")
+    with k4: st.metric("Periode Validasi",  "13 Minggu", help="Jan–Mar 2026")
+
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+
+    col_l, col_r = st.columns([1.2, 1])
+
+    with col_l:
+        # Bar chart MAPE per district
+        st.markdown("<p style='font-size:0.75rem;font-weight:700;text-transform:uppercase;"
+                    "letter-spacing:1px;color:#555;margin:0 0 6px 0'>MAPE per District</p>",
+                    unsafe_allow_html=True)
+        fig_v = go.Figure()
+        fig_v.add_trace(go.Bar(
+            x=[dlabel(k) for k in df_val['Kecamatan']],
+            y=df_val['MAPE (%)'],
+            marker_color=[CMAP[k] for k in df_val['Kecamatan']],
+            marker_line_width=0,
+            text=[f"{v:.1f}%" for v in df_val['MAPE (%)']],
+            textposition='outside',
+            textfont=dict(size=11, color='#333')))
+        fig_v.add_shape(type='line', x0=-0.5, x1=4.5, y0=15, y1=15,
+                        line=dict(color='#CC0000', width=1.2, dash='dash'))
+        fig_v.add_annotation(x=4.5, y=15, text='Target 15%',
+                             showarrow=False, font=dict(size=9, color='#CC0000'),
+                             xanchor='right', yanchor='bottom')
+        fig_v.update_layout(**plotly_base(300,
+            margin=dict(l=10, r=10, t=20, b=50),
+            showlegend=False,
+            xaxis=dict(showgrid=False, tickfont=dict(size=11, color='#333')),
+            yaxis=dict(title='MAPE (%)', range=[0, df_val['MAPE (%)'].max() * 1.25],
+                       showgrid=True, gridcolor='#f5f5f5',
+                       tickfont=dict(size=10, color='#888'),
+                       title_font=dict(size=10, color='#aaa'))))
+        st.plotly_chart(fig_v, use_container_width=True, config={'displayModeBar': False})
+
+        # Grouped metric chart (RMSE & MAE)
+        st.markdown("<p style='font-size:0.75rem;font-weight:700;text-transform:uppercase;"
+                    "letter-spacing:1px;color:#555;margin:0.8rem 0 6px 0'>RMSE & MAE per District</p>",
+                    unsafe_allow_html=True)
+        fig_rm = go.Figure()
+        fig_rm.add_trace(go.Bar(
+            name='RMSE',
+            x=[dlabel(k) for k in df_val['Kecamatan']],
+            y=df_val['RMSE'],
+            marker_color='#CC0000', opacity=0.85, marker_line_width=0))
+        fig_rm.add_trace(go.Bar(
+            name='MAE',
+            x=[dlabel(k) for k in df_val['Kecamatan']],
+            y=df_val['MAE'],
+            marker_color='#111', opacity=0.55, marker_line_width=0))
+        fig_rm.update_layout(**plotly_base(260,
+            barmode='group',
+            margin=dict(l=10, r=10, t=10, b=60),
+            xaxis=dict(showgrid=False, tickfont=dict(size=11, color='#333')),
+            yaxis=dict(title='Nilai Error', showgrid=True, gridcolor='#f5f5f5',
+                       tickfont=dict(size=10, color='#888'),
+                       title_font=dict(size=10, color='#aaa'))))
+        st.plotly_chart(fig_rm, use_container_width=True, config={'displayModeBar': False})
+
+    with col_r:
+        # Metrics table
+        st.markdown("<p style='font-size:0.75rem;font-weight:700;text-transform:uppercase;"
+                    "letter-spacing:1px;color:#555;margin:0 0 8px 0'>Tabel Metrik Lengkap</p>",
+                    unsafe_allow_html=True)
+        disp = df_val[['District','MAPE (%)','RMSE','MAE','Bias','Weeks']]\
+               .rename(columns={'Weeks': 'Minggu'})\
+               .sort_values('MAPE (%)')
+        st.dataframe(
+            disp.style
+                .highlight_min(subset=['MAPE (%)'], color='#d4edda')
+                .highlight_max(subset=['MAPE (%)'], color='#f8d7da')
+                .format({'MAPE (%)': '{:.1f}%', 'RMSE': '{:,}', 'MAE': '{:,}', 'Bias': '{:+,}'}),
+            use_container_width=True, hide_index=True, height=260)
+
+        # Bias chart
+        st.markdown("<p style='font-size:0.75rem;font-weight:700;text-transform:uppercase;"
+                    "letter-spacing:1px;color:#555;margin:1rem 0 6px 0'>Bias per District</p>",
+                    unsafe_allow_html=True)
+        st.markdown("<p style='font-size:0.72rem;color:#777;margin:-2px 0 8px 0'>"
+                    "Positif = model over-prediksi · Negatif = model under-prediksi</p>",
+                    unsafe_allow_html=True)
+        bias_colors = ['#CC0000' if b > 0 else '#0055BB' for b in df_val['Bias']]
+        fig_b = go.Figure(go.Bar(
+            x=[dlabel(k) for k in df_val['Kecamatan']],
+            y=df_val['Bias'],
+            marker_color=bias_colors, marker_line_width=0,
+            text=[f"{b:+,}" for b in df_val['Bias']],
+            textposition='outside', textfont=dict(size=10, color='#333')))
+        fig_b.add_shape(type='line', x0=-0.5, x1=4.5, y0=0, y1=0,
+                        line=dict(color='#333', width=1))
+        fig_b.update_layout(**plotly_base(240,
+            margin=dict(l=10, r=10, t=20, b=50),
+            showlegend=False,
+            xaxis=dict(showgrid=False, tickfont=dict(size=11, color='#333')),
+            yaxis=dict(title='Bias (servis/minggu)', showgrid=True, gridcolor='#f5f5f5',
+                       tickfont=dict(size=10, color='#888'),
+                       title_font=dict(size=10, color='#aaa'))))
+        st.plotly_chart(fig_b, use_container_width=True, config={'displayModeBar': False})
+
+    # Interpretation cards
+    st.markdown('<div class="sec">Interpretasi</div>', unsafe_allow_html=True)
+    i1, i2, i3 = st.columns(3)
+    with i1:
+        st.markdown("""
+        <div style="background:#f0fdf4;border-left:3px solid #16a34a;padding:10px 14px;border-radius:0 8px 8px 0">
+          <p style="font-size:0.82rem;font-weight:700;color:#16a34a;margin:0 0 3px 0">✅ Performa Baik</p>
+          <p style="font-size:0.75rem;color:#555;margin:0">District A, C, dan E mencapai MAPE di bawah 12% — konsisten dengan performa uji 2025.</p>
+        </div>""", unsafe_allow_html=True)
+    with i2:
+        st.markdown("""
+        <div style="background:#fffbeb;border-left:3px solid #d97706;padding:10px 14px;border-radius:0 8px 8px 0">
+          <p style="font-size:0.82rem;font-weight:700;color:#d97706;margin:0 0 3px 0">⚠️ Perlu Perhatian</p>
+          <p style="font-size:0.75rem;color:#555;margin:0">District B (23.3%) dan D (15.1%) melebihi target MAPE 15%, kemungkinan akibat perubahan pola permintaan lokal.</p>
+        </div>""", unsafe_allow_html=True)
+    with i3:
+        st.markdown("""
+        <div style="background:#fff5f5;border-left:3px solid #CC0000;padding:10px 14px;border-radius:0 8px 8px 0">
+          <p style="font-size:0.82rem;font-weight:700;color:#CC0000;margin:0 0 3px 0">📌 Catatan Bias</p>
+          <p style="font-size:0.75rem;color:#555;margin:0">Mayoritas district memiliki bias positif (over-prediksi). District D satu-satunya yang under-prediksi (Bias −160).</p>
+        </div>""", unsafe_allow_html=True)
