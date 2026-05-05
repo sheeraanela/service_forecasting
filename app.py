@@ -390,51 +390,78 @@ with tab3:
             actuals.append(X_test[i+1, lag1_idx] if i+1 < len(X_test) else np.nan)
         return np.array(actuals)
 
-    # ── Forecast vs Actual comparison chart — per district selector ──
+    # ── One full chart per district ──
     st.markdown('<div class="sec">Perbandingan Prakiraan vs Data Aktual 2026</div>',
                 unsafe_allow_html=True)
     st.markdown("<p style='font-size:0.83rem;color:#555;margin:-0.5rem 0 1rem 0'>"
-                "Data aktual direkonstruksi dari lag features model. "
-                "Garis hijau = Lebaran (20 Mar 2026).</p>",
+                "Data aktual direkonstruksi dari lag features model (Jan–Mar 2026, 13 minggu). "
+                "Garis hijau putus-putus = Lebaran 2026.</p>",
                 unsafe_allow_html=True)
 
-    # One chart per district, 2 columns
-    for row_kecs in [TOP5[:3], TOP5[3:]]:
-        row_cols = st.columns(len(row_kecs))
-        for col, kec in zip(row_cols, row_kecs):
-            clr     = CMAP[kec]
-            fc_kec  = fcr[kec]
-            ds13    = fc_kec['ds'].iloc[:13]
-            fc13    = fc_kec['forecast'].iloc[:13].values
-            act13   = get_actuals(kec)
-            ds_str  = ds13.astype(str)
+    val_mape = dict(zip(df_val['Kecamatan'], df_val['MAPE (%)']))
 
-            fig_cmp = go.Figure()
-            fig_cmp.add_trace(go.Scatter(
-                x=ds_str, y=act13, mode='lines+markers',
-                name='Aktual', line=dict(color='#111', width=2),
-                marker=dict(size=5, color='#111')))
-            fig_cmp.add_trace(go.Scatter(
-                x=ds_str, y=fc13, mode='lines+markers',
-                name='Prakiraan', line=dict(color=clr, width=2, dash='dash'),
-                marker=dict(size=5, color=clr)))
-            # Lebaran line
-            lb = LEB.get(2026)
-            if lb and lb in ds_str.values:
-                fig_cmp.add_shape(type='line', x0=lb, x1=lb, y0=0, y1=1, yref='paper',
-                                  line=dict(color='#00AA00', width=1.2, dash='dash'))
-            fig_cmp.update_layout(**plotly_base(240,
-                title=dict(text=dlabel(kec), font=dict(size=12, color='#111'), x=0),
-                margin=dict(l=10, r=10, t=30, b=80),
-                xaxis=dict(tickformat='%d %b', showgrid=True, gridcolor='#f5f5f5',
-                           tickfont=dict(size=8, color='#888')),
-                yaxis=dict(showgrid=True, gridcolor='#f5f5f5',
-                           tickfont=dict(size=9, color='#888')),
-                legend=dict(orientation='h', y=-0.3, x=0.5, xanchor='center',
-                            font=dict(size=9))))
-            with col:
-                st.plotly_chart(fig_cmp, use_container_width=True,
-                                config={'displayModeBar': False})
+    for kec, clr in zip(TOP5, COLORS):
+        fc_kec  = fcr[kec]
+        hist    = hist_df[hist_df['Kecamatan Bengkel'] == kec].tail(26)
+        ds_full = fc_kec['ds'].astype(str)
+        fc_vals = fc_kec['forecast'].values
+        opt_vals = fc_kec['optimistic'].values
+        pes_vals = fc_kec['pessimistic'].values
+        act13   = get_actuals(kec)
+        ds13    = fc_kec['ds'].iloc[:13].astype(str)
+        lb      = LEB.get(2026)
+        mape_v  = val_mape.get(kec, 0)
+
+        fig_v = go.Figure()
+
+        # Historical bars
+        fig_v.add_trace(go.Bar(
+            x=hist['Tanggal Servis'].astype(str), y=hist['Jumlah Servis'],
+            name='Historis 2025', marker_color='#D6E8FA', marker_line_width=0,
+            opacity=0.85))
+
+        # Confidence band
+        fig_v.add_trace(go.Scatter(
+            x=pd.concat([ds_full, ds_full[::-1]]),
+            y=np.concatenate([opt_vals, pes_vals[::-1]]),
+            fill='toself', fillcolor='rgba(204,0,0,0.07)',
+            line=dict(color='rgba(0,0,0,0)'), name='Rentang Kepercayaan',
+            showlegend=True))
+
+        # Forecast line
+        fig_v.add_trace(go.Scatter(
+            x=ds_full, y=fc_vals, mode='lines',
+            name='Prakiraan (LightGBM)',
+            line=dict(color=clr, width=2)))
+
+        # Actual 2026 (red bold)
+        fig_v.add_trace(go.Scatter(
+            x=ds13, y=act13, mode='lines+markers',
+            name='Aktual 2026',
+            line=dict(color='#CC0000', width=2.5),
+            marker=dict(size=6, color='#CC0000')))
+
+        # Lebaran line
+        if lb:
+            fig_v.add_shape(type='line', x0=lb, x1=lb, y0=0, y1=1, yref='paper',
+                            line=dict(color='#00AA00', width=1.2, dash='dash'))
+            fig_v.add_annotation(x=lb, y=1.04, yref='paper',
+                                 text='Lebaran 2026', showarrow=False,
+                                 font=dict(size=8.5, color='#00AA00', family='DM Sans'),
+                                 xanchor='center')
+
+        fig_v.update_layout(**plotly_base(320,
+            title=dict(
+                text=f"{dlabel(kec)}  |  LightGBM  |  Validasi 2026: MAPE={mape_v:.1f}% (13 minggu)",
+                font=dict(size=12, color='#111'), x=0.5, xanchor='center'),
+            margin=dict(l=10, r=10, t=40, b=90),
+            xaxis=dict(tickformat='%b %Y', showgrid=True, gridcolor='#f5f5f5',
+                       linecolor='#ddd', tickfont=dict(size=10, color='#888')),
+            yaxis=dict(title='Servis / Minggu', showgrid=True, gridcolor='#f5f5f5',
+                       linecolor='#ddd', tickfont=dict(size=10, color='#888'),
+                       title_font=dict(size=10, color='#aaa'))))
+
+        st.plotly_chart(fig_v, use_container_width=True, config={'displayModeBar': False})
 
     st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
