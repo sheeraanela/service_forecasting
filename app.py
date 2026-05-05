@@ -380,6 +380,64 @@ with tab3:
 
     st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
+    # ── Reconstruct actuals from lag_1 feature ──
+    def get_actuals(kec):
+        feat_cols = shap_res[kec]['feat_cols']
+        X_test    = shap_res[kec]['X_test']
+        lag1_idx  = feat_cols.index('lag_1')
+        actuals   = []
+        for i in range(13):
+            actuals.append(X_test[i+1, lag1_idx] if i+1 < len(X_test) else np.nan)
+        return np.array(actuals)
+
+    # ── Forecast vs Actual comparison chart — per district selector ──
+    st.markdown('<div class="sec">Perbandingan Prakiraan vs Data Aktual 2026</div>',
+                unsafe_allow_html=True)
+    st.markdown("<p style='font-size:0.83rem;color:#555;margin:-0.5rem 0 1rem 0'>"
+                "Data aktual direkonstruksi dari lag features model. "
+                "Garis hijau = Lebaran (20 Mar 2026).</p>",
+                unsafe_allow_html=True)
+
+    # One chart per district, 2 columns
+    for row_kecs in [TOP5[:3], TOP5[3:]]:
+        row_cols = st.columns(len(row_kecs))
+        for col, kec in zip(row_cols, row_kecs):
+            clr     = CMAP[kec]
+            fc_kec  = fcr[kec]
+            ds13    = fc_kec['ds'].iloc[:13]
+            fc13    = fc_kec['forecast'].iloc[:13].values
+            act13   = get_actuals(kec)
+            ds_str  = ds13.astype(str)
+
+            fig_cmp = go.Figure()
+            fig_cmp.add_trace(go.Scatter(
+                x=ds_str, y=act13, mode='lines+markers',
+                name='Aktual', line=dict(color='#111', width=2),
+                marker=dict(size=5, color='#111')))
+            fig_cmp.add_trace(go.Scatter(
+                x=ds_str, y=fc13, mode='lines+markers',
+                name='Prakiraan', line=dict(color=clr, width=2, dash='dash'),
+                marker=dict(size=5, color=clr)))
+            # Lebaran line
+            lb = LEB.get(2026)
+            if lb and lb in ds_str.values:
+                fig_cmp.add_shape(type='line', x0=lb, x1=lb, y0=0, y1=1, yref='paper',
+                                  line=dict(color='#00AA00', width=1.2, dash='dash'))
+            fig_cmp.update_layout(**plotly_base(240,
+                title=dict(text=dlabel(kec), font=dict(size=12, color='#111'), x=0),
+                margin=dict(l=10, r=10, t=30, b=80),
+                xaxis=dict(tickformat='%d %b', showgrid=True, gridcolor='#f5f5f5',
+                           tickfont=dict(size=8, color='#888')),
+                yaxis=dict(showgrid=True, gridcolor='#f5f5f5',
+                           tickfont=dict(size=9, color='#888')),
+                legend=dict(orientation='h', y=-0.3, x=0.5, xanchor='center',
+                            font=dict(size=9))))
+            with col:
+                st.plotly_chart(fig_cmp, use_container_width=True,
+                                config={'displayModeBar': False})
+
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+
     col_l, col_r = st.columns([1.2, 1])
 
     with col_l:
