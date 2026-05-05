@@ -40,7 +40,7 @@ st.markdown("""
 .stTabs [aria-selected="true"] {
     background: #CC0000 !important; color: #fff !important; border-color: #CC0000 !important;
 }
-[data-baseweb="tab-border"], .stTabs [data-baseweb="tab-panel"] > div:first-child { display: none; }
+[data-baseweb="tab-border"] { display: none; }
 .stTabs [data-baseweb="tab-panel"] { padding: 0 2rem !important; }
 
 /* metrics */
