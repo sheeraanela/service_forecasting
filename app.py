@@ -28,6 +28,10 @@ html, body, [class*="css"], p, span, div, label, h1, h2, h3, h4 {
     padding: 0 !important;
     max-width: 100% !important;
 }
+/* Kill the default top gap Streamlit injects */
+.main .block-container > div:first-child { padding-top: 0 !important; margin-top: 0 !important; }
+section.main > div { padding-top: 0 !important; }
+[data-testid="stAppViewBlockContainer"] { padding-top: 0 !important; }
 
 /* ── Hide chrome ── */
 #MainMenu, footer, header { visibility: hidden !important; }
@@ -37,11 +41,16 @@ section[data-testid="stSidebar"] { display: none !important; }
 [data-testid="stStatusWidget"]    { display: none !important; }
 .stDeployButton                   { display: none !important; }
 
-/* ── RED HEADER ── */
+/* ── RED HEADER — flush to top ── */
 .main-header {
     background-color: #CC0000;
-    padding: 2.5rem 3rem;
-    margin-bottom: 0;
+    padding: 2.2rem 3rem;
+    margin: 0;
+}
+/* Extra kill for Streamlit top padding */
+div[data-testid="stAppViewBlockContainer"] { padding-top: 0 !important; margin-top: 0 !important; }
+div[data-testid="stVerticalBlock"] > div:first-child > div[data-testid="stMarkdownContainer"] > div > .main-header {
+    margin-top: -4rem !important;
 }
 .main-header h1 {
     font-size: 2.4rem; font-weight: 700; color: #FFFFFF !important;
@@ -59,7 +68,7 @@ section[data-testid="stSidebar"] { display: none !important; }
     border: 1px solid #E5E5E5;
     border-left: 4px solid #CC0000;
     padding: 1.1rem 1.5rem;
-    margin: 1.8rem 0 1.5rem 0;
+    margin: 1rem 0 1.2rem 0;
 }
 
 /* ── Selectbox ── */
@@ -102,12 +111,14 @@ div[data-testid="stSelectbox"] > div > div {
 
 /* ── METRICS ── */
 [data-testid="stMetricValue"] {
-    font-size: 2rem !important; font-weight: 700 !important; color: #0D0D0D !important;
+    font-size: 2.6rem !important; font-weight: 700 !important; color: #0D0D0D !important;
+    line-height: 1.15 !important;
 }
 [data-testid="stMetricLabel"] {
-    font-size: 0.7rem !important; font-weight: 700 !important; color: #555 !important;
-    text-transform: uppercase; letter-spacing: 1px;
+    font-size: 0.72rem !important; font-weight: 700 !important; color: #555 !important;
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.4rem !important;
 }
+[data-testid="metric-container"] { padding: 0.5rem 0 !important; }
 
 /* ── XAI note ── */
 .xai-note {
@@ -376,11 +387,11 @@ st.markdown('</div>', unsafe_allow_html=True)
 # TABS
 # ══════════════════════════════════════════════════════════════════════════════
 fc_row = fc_data.iloc[sel_week_idx]
-tab1, tab2, tab3, tab4 = st.tabs(["PRAKIRAAN", "PENJELASAN XAI", "PERBANDINGAN MODEL", "VALIDASI 2026"])
+tab1, tab2 = st.tabs(["PRAKIRAAN", "PENJELASAN XAI"])
 
 # ═══ TAB 1 ════════════════════════════════════════════════════════════════════
 with tab1:
-    # KPI row
+    # KPI row — bigger spacing
     c1, c2, c3, c4 = st.columns(4)
     with c1: st.metric("District", dist_label(selected_kec))
     with c2: st.metric("Prakiraan Dasar", f"{fc_row['forecast']:,.0f}", help="servis / minggu")
@@ -476,72 +487,5 @@ with tab2:
 
     st.markdown('<div class="sec-head">Kamus Fitur — Penjelasan Lengkap</div>', unsafe_allow_html=True)
     st.dataframe(FEAT_TABLE, use_container_width=True, hide_index=True, height=530)
-
-# ═══ TAB 3 ════════════════════════════════════════════════════════════════════
-with tab3:
-    st.markdown('<div class="sec-head">Perbandingan Model — Periode Uji 2025</div>', unsafe_allow_html=True)
-
-    avg_rows = []
-    for mn in df_comparison['Model'].unique():
-        sub = df_comparison[df_comparison['Model'] == mn]
-        avg_rows.append({'Model': mn, 'Rata-rata MAPE (%)': round(sub['MAPE (%)'].mean(), 1),
-                         'Rata-rata RMSE': int(sub['RMSE'].mean()),
-                         'Rata-rata MAE':  int(sub['MAE'].mean()),
-                         'Rata-rata R²':   round(sub['R2'].mean(), 3)})
-    df_avg = pd.DataFrame(avg_rows).sort_values('Rata-rata MAPE (%)')
-
-    st.markdown("<p style='font-size:0.82rem;font-weight:600;color:#555;margin:0 0 6px 0'>Rata-rata Kinerja di Semua District</p>",
-                unsafe_allow_html=True)
-    st.dataframe(df_avg.style.highlight_min(subset=['Rata-rata MAPE (%)'], color='#FFE5E5'),
-                 use_container_width=True, height=170)
-
-    st.markdown("<p style='font-size:0.82rem;font-weight:600;color:#555;margin:1.2rem 0 6px 0'>MAPE per Model dan District</p>",
-                unsafe_allow_html=True)
-    st.plotly_chart(chart_comp(), use_container_width=True, config={'displayModeBar': False})
-
-    st.markdown("<p style='font-size:0.82rem;font-weight:600;color:#555;margin:0 0 6px 0'>Tabel Hasil Lengkap</p>",
-                unsafe_allow_html=True)
-    df_cd = df_comparison.copy()
-    df_cd.insert(0, 'District', df_cd['Kecamatan'].apply(dist_label))
-    df_cd = df_cd[['Model','District','MAPE (%)','RMSE','MAE','R2']].sort_values(['District','MAPE (%)'])
-    st.dataframe(df_cd, use_container_width=True, height=340, hide_index=True)
-
-# ═══ TAB 4 ════════════════════════════════════════════════════════════════════
-with tab4:
-    st.markdown('<div class="sec-head">Validasi Luar Sampel 2026</div>', unsafe_allow_html=True)
-    st.info("Validasi terhadap data aktual 2026 (Januari – Maret 2026). Minggu yang hilang (9–23 Feb) diisi nilai rata-rata. Minggu Lebaran dilaporkan terpisah karena volatilitas ekstrem.")
-
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        st.markdown("<p style='font-size:0.82rem;font-weight:600;color:#555;margin:0 0 6px 0'>Metrik Validasi Keseluruhan</p>",
-                    unsafe_allow_html=True)
-        dv = df_validation.copy()
-        dv.insert(0, 'District', dv['Kecamatan'].apply(dist_label))
-        dv = dv[['District','Model','MAPE (%)','RMSE','MAE','Bias','Weeks']].rename(columns={'Weeks':'Minggu'})
-        st.dataframe(dv.style.highlight_min(subset=['MAPE (%)'], color='#FFE5E5'),
-                     use_container_width=True, height=220, hide_index=True)
-
-    with col2:
-        st.markdown("<p style='font-size:0.82rem;font-weight:600;color:#555;margin:0 0 6px 0'>MAPE per District</p>",
-                    unsafe_allow_html=True)
-        st.plotly_chart(chart_val(), use_container_width=True, config={'displayModeBar': False})
-
-    st.markdown('<div class="sec-head">Interpretasi</div>', unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.markdown("""<div class="interp-card" style="background:#F0FDF4;border-color:#16a34a">
-          <p class="interp-ttl" style="color:#16a34a">✅ Performa Baik</p>
-          <p class="interp-body">District D dan E mencapai MAPE di bawah 12% selama periode permintaan normal.</p>
-        </div>""", unsafe_allow_html=True)
-    with c2:
-        st.markdown("""<div class="interp-card" style="background:#FFFBEB;border-color:#D97706">
-          <p class="interp-ttl" style="color:#D97706">⚠️ Galat Lebih Tinggi</p>
-          <p class="interp-body">District A dan C menunjukkan galat lebih tinggi akibat volatilitas yang melebihi pola historis.</p>
-        </div>""", unsafe_allow_html=True)
-    with c3:
-        st.markdown("""<div class="interp-card" style="background:#FFF5F5;border-color:#CC0000">
-          <p class="interp-ttl" style="color:#CC0000">🔴 Efek Lebaran</p>
-          <p class="interp-body">MAPE 29–75% selama minggu Lebaran. Penurunan permintaan di luar rentang pelatihan model.</p>
-        </div>""", unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
