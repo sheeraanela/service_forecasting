@@ -219,8 +219,8 @@ def chart_base(h=300):
 st.markdown("""
 <div class="app-hdr">
   <div style="padding:0 2rem">
-    <p class="app-hdr-title">AHASS Prakiraan Permintaan</p>
-    <p class="app-hdr-sub">Prakiraan Servis Mingguan — Top 5 District Jakarta · LightGBM + SHAP XAI</p>
+    <p class="app-hdr-title">Forecasting Dashboard - PT XYZ</p>
+    <p class="app-hdr-sub">Prakiraan Servis Mingguan — Kecamatan Jakarta dan Tangerang</p>
   </div>
 </div>
 """, unsafe_allow_html=True)
