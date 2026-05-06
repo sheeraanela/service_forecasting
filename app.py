@@ -419,10 +419,10 @@ with t3:
     # ── Status + instructions ──────────────────────────────────────────────────
     if has_actual:
         n_wk = dv_live['Minggu'].max() if 'Minggu' in dv_live.columns else '?'
-        st.success(f"✅ Data aktual dimuat — **{len(df_actual)} baris** ({n_wk} minggu per district)")
+        st.success(f"Data aktual dimuat — **{len(df_actual)} baris** ({n_wk} minggu per district)")
     else:
-        st.warning("📂 **Belum ada data aktual.** Tambahkan `aktual_2026_weekly.csv` ke folder `streamlit_assets/`.")
-        with st.expander("📋 Cara membuat file — klik untuk panduan"):
+        st.warning("**Belum ada data aktual.** Tambahkan `aktual_2026_weekly.csv` ke folder `streamlit_assets/`.")
+        with st.expander("Cara membuat file — klik untuk panduan"):
             st.markdown("""
 Jalankan kode ini di akhir notebook training kamu, lalu simpan hasilnya:
 
@@ -532,11 +532,11 @@ KECAMATAN_B,2026-01-05,2841.50
                 .format({'MAPE (%)':'{:.1f}%','RMSE':'{:,}','MAE':'{:,}','Bias':'{:+,}'}),
             use_container_width=True, hide_index=True, height=240)
 
-        st.markdown('<p class="sec" style="margin-top:12px">Interpretasi</p>', unsafe_allow_html=True)
+        st.markdown('<p class="sec" style="margin-top:8px">Interpretasi</p>', unsafe_allow_html=True)
         for clr2,bg,title,desc in [
-            ("#16a34a","#f0fdf4","✅ Performa Baik","MAPE di bawah 12% — prediksi akurat."),
-            ("#d97706","#fffbeb","⚠️ Perlu Perhatian","MAPE di atas 15% — perlu evaluasi model."),
-            ("#CC0000","#fff5f5","🔴 Efek Lebaran","Penurunan permintaan di luar rentang pelatihan."),
+            ("#16a34a","#f0fdf4","Performa Baik","MAPE < 12% — prediksi akurat."),
+            ("#d97706","#fffbeb","Perlu Perhatian","MAPE > 15% — perlu evaluasi model."),
+            ("#CC0000","#fff5f5","Efek Lebaran","Penurunan permintaan di luar rentang pelatihan."),
         ]:
             st.markdown(f"""
             <div class="icard" style="background:{bg};border-color:{clr2}">
