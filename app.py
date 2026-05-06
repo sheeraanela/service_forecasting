@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import pickle
 import matplotlib; matplotlib.use('Agg')
 
-st.set_page_config(page_title="AHASS Prakiraan", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Forecasting Permintaan Servis", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
