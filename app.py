@@ -532,7 +532,7 @@ KECAMATAN_B,2026-01-05,2841.50
                 .format({'MAPE (%)':'{:.1f}%','RMSE':'{:,}','MAE':'{:,}','Bias':'{:+,}'}),
             use_container_width=True, hide_index=True, height=240)
 
-        st.markdown('<p class="sec" style="margin-top:4px">Interpretasi</p>', unsafe_allow_html=True)
+        st.markdown('<p class="sec" style="margin-top:2px">Interpretasi</p>', unsafe_allow_html=True)
         for clr2,bg,title,desc in [
             ("#16a34a","#f0fdf4","Performa Baik","MAPE < 12% — prediksi akurat."),
             ("#d97706","#fffbeb","Perlu Perhatian","MAPE > 15% — perlu evaluasi model."),
