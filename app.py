@@ -376,47 +376,52 @@ with t3:
     lc, rc = st.columns([2.4, 1])
 
     with lc:
-        st.markdown('<p class="sec">Prakiraan vs Aktual 2026 per District</p>', unsafe_allow_html=True)
-        r1 = st.columns(3)
-        r2 = st.columns(3)
-        for i, (kec, clr) in enumerate(zip(TOP5, COLS)):
-            col = r1[i] if i < 3 else r2[i-3]
-            fck = fcr[kec]
-            hk  = hdf[hdf['Kecamatan Bengkel']==kec].tail(26)
-            fds = fck['ds'].astype(str)
-            act = get_actuals(kec)
-            d13 = fck['ds'].iloc[:13].astype(str)
-            mv  = vmape.get(kec, 0)
+        st.markdown('<p class="sec">Prakiraan vs Aktual 2026</p>', unsafe_allow_html=True)
 
-            fv = go.Figure()
-            fv.add_trace(go.Bar(x=hk['Tanggal Servis'].astype(str), y=hk['Jumlah Servis'],
-                                name='Hist 2025', marker_color='#DAEAF8', marker_line_width=0, opacity=0.8))
-            fv.add_trace(go.Scatter(
-                x=pd.concat([fds, fds[::-1]]),
-                y=pd.concat([fck['optimistic'], fck['pessimistic'][::-1]]),
-                fill='toself', fillcolor='rgba(204,0,0,0.05)',
-                line=dict(color='rgba(0,0,0,0)'), name='Rentang', showlegend=False))
-            fv.add_trace(go.Scatter(x=fds, y=fck['forecast'], mode='lines', name='Prakiraan',
-                                    line=dict(color=clr, width=1.5)))
-            fv.add_trace(go.Scatter(x=d13, y=act, mode='lines+markers', name='Aktual 2026',
-                                    line=dict(color='#CC0000', width=1.8),
-                                    marker=dict(size=3, color='#CC0000')))
-            lb = LEB.get(2026)
-            if lb:
-                fv.add_shape(type='line', x0=lb, x1=lb, y0=0, y1=1, yref='paper',
-                             line=dict(color='#00AA00', width=0.8, dash='dash'))
-            lv = chart_base(185)
-            lv['title'] = dict(text=f"{dl(kec)}  ·  MAPE {mv:.1f}%",
-                               font=dict(size=9, color='#333'), x=0.5, xanchor='center')
-            lv['margin'] = dict(l=6, r=6, t=24, b=60)
-            lv['xaxis']['tickformat'] = '%b %Y'
-            lv['xaxis']['tickfont']   = dict(size=7.5, color='#aaa')
-            lv['yaxis']['tickfont']   = dict(size=7.5, color='#aaa')
-            lv['legend'] = dict(orientation='h', y=-0.4, x=0.5, xanchor='center',
-                                font=dict(size=7.5), bgcolor='rgba(255,255,255,0.9)')
-            fv.update_layout(**lv)
-            with col:
-                st.plotly_chart(fv, use_container_width=True, config={'displayModeBar': False})
+        # Single district chart — matches the selected district from the dropdown
+        clr = CM[sel]
+        fck = fcr[sel]
+        hk  = hdf[hdf['Kecamatan Bengkel']==sel].tail(26)
+        fds = fck['ds'].astype(str)
+        act = get_actuals(sel)
+        d13 = fck['ds'].iloc[:13].astype(str)
+        mv  = vmape.get(sel, 0)
+
+        fv = go.Figure()
+        fv.add_trace(go.Bar(x=hk['Tanggal Servis'].astype(str), y=hk['Jumlah Servis'],
+                            name='Hist 2025', marker_color='#DAEAF8', marker_line_width=0, opacity=0.85))
+        fv.add_trace(go.Scatter(
+            x=pd.concat([fds, fds[::-1]]),
+            y=pd.concat([fck['optimistic'], fck['pessimistic'][::-1]]),
+            fill='toself', fillcolor='rgba(204,0,0,0.06)',
+            line=dict(color='rgba(0,0,0,0)'), name='Rentang Kepercayaan'))
+        fv.add_trace(go.Scatter(x=fds, y=fck['forecast'], mode='lines', name='Prakiraan (LightGBM)',
+                                line=dict(color=clr, width=2)))
+        fv.add_trace(go.Scatter(x=d13, y=act, mode='lines+markers', name='Aktual 2026',
+                                line=dict(color='#CC0000', width=2.2),
+                                marker=dict(size=5, color='#CC0000')))
+        lb = LEB.get(2026)
+        if lb:
+            fv.add_shape(type='line', x0=lb, x1=lb, y0=0, y1=1, yref='paper',
+                         line=dict(color='#00AA00', width=1, dash='dash'))
+            fv.add_annotation(x=lb, y=1.04, yref='paper', text='Lebaran 2026',
+                              showarrow=False, font=dict(size=8, color='#00AA00'), xanchor='center')
+        lv = chart_base(340)
+        lv['margin'] = dict(l=8, r=8, t=10, b=80)
+        lv['xaxis']['tickformat'] = '%b %Y'
+        lv['yaxis']['title'] = 'Servis / Minggu'
+        lv['yaxis']['title_font'] = dict(size=9, color='#bbb')
+        fv.update_layout(**lv)
+        st.plotly_chart(fv, use_container_width=True, config={'displayModeBar': False})
+
+        # MAPE summary for selected district
+        row_val = dv[dv['Kecamatan']==sel].iloc[0] if sel in dv['Kecamatan'].values else None
+        if row_val is not None:
+            m1,m2,m3,m4 = st.columns(4)
+            with m1: st.metric("MAPE Validasi", f"{row_val['MAPE (%)']:.1f}%")
+            with m2: st.metric("RMSE", f"{row_val['RMSE']:,}")
+            with m3: st.metric("MAE",  f"{row_val['MAE']:,}")
+            with m4: st.metric("Bias", f"{row_val['Bias']:+,}")
 
     with rc:
         st.markdown('<p class="sec">Metrik Validasi</p>', unsafe_allow_html=True)
