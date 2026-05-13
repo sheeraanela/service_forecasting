@@ -398,16 +398,8 @@ with t2:
 # ══════════════════════════════════════════════════════════════════════════════
 with t3:
     # ── File uploader ─────────────────────────────────────────────────────────
-    st.markdown('<p class="sec">Upload Data Aktual</p>', unsafe_allow_html=True)
-
-    uploaded = st.file_uploader(
-        "Upload `aktual_2026_weekly.csv` dari Google Colab",
-        type="csv",
-        help="File dengan kolom: Kecamatan, ds, y_smooth — export dari notebook training kamu"
-    )
-
-    # ── Load data — from upload or from streamlit_assets/ ────────────────────
     import os
+    ASSET_PATH = "streamlit_assets/aktual_2026_weekly.csv"
 
     def load_weekly(file_obj):
         try:
@@ -435,23 +427,30 @@ with t3:
             st.error(f"Gagal membaca file: {e}")
             return None, None
 
-    ASSET_PATH = "streamlit_assets/aktual_2026_weekly.csv"
+    # Load priority: uploaded file > streamlit_assets > fallback metrics
+    uploaded = st.file_uploader(
+        "Upload data aktual dari Google Colab",
+        type="csv",
+        label_visibility="collapsed",
+        help="File dengan kolom: Kecamatan, ds, y_smooth"
+    )
 
     if uploaded is not None:
         df_actual, dv_live = load_weekly(uploaded)
-        source_label = f"📤 Upload: `{uploaded.name}`"
+        source_label = f"📤 `{uploaded.name}`"
     elif os.path.exists(ASSET_PATH):
         df_actual, dv_live = load_weekly(ASSET_PATH)
-        source_label = f"📂 File: `aktual_2026_weekly.csv`"
+        source_label = "📂 `aktual_2026_weekly.csv`"
     else:
         df_actual, dv_live = None, None
         source_label = None
 
     has_actual = df_actual is not None and dv_live is not None
 
-    if not has_actual and uploaded is None:
-        st.caption("Belum ada data aktual. Upload file CSV di atas, atau jalankan kode berikut di notebook Colab kamu:")
-        st.code("""rows = []
+    # Show instructions only when nothing is loaded
+    if not has_actual:
+        with st.expander("Belum ada data aktual — klik untuk lihat cara export dari Colab"):
+            st.code("""rows = []
 for kec, df_w in weekly_2026.items():
     for _, r in df_w.iterrows():
         rows.append({'Kecamatan': kec,
