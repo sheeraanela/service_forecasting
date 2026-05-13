@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import pickle
 import matplotlib; matplotlib.use('Agg')
 
-st.set_page_config(page_title="Forecasting Permintaan Servis", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="AHASS Prakiraan", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
@@ -219,8 +219,8 @@ def chart_base(h=300):
 st.markdown("""
 <div class="app-hdr">
   <div style="padding:0 2rem">
-    <p class="app-hdr-title">Forecasting Dashboard - PT XYZ</p>
-    <p class="app-hdr-sub">Prakiraan Servis Mingguan — Kecamatan Jakarta dan Tangerang</p>
+    <p class="app-hdr-title">AHASS Prakiraan Permintaan</p>
+    <p class="app-hdr-sub">Prakiraan Servis Mingguan — Top 5 District Jakarta · LightGBM + SHAP XAI</p>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -397,16 +397,82 @@ with t2:
 
 # ══════════════════════════════════════════════════════════════════════════════
 with t3:
-    df_actual, dv_live = load_weekly_actual()
+    # ── File uploader ─────────────────────────────────────────────────────────
+    st.markdown('<p class="sec">Upload Data Aktual</p>', unsafe_allow_html=True)
+
+    uploaded = st.file_uploader(
+        "Upload `aktual_2026_weekly.csv` dari Google Colab",
+        type="csv",
+        help="File dengan kolom: Kecamatan, ds, y_smooth — export dari notebook training kamu"
+    )
+
+    # ── Load data — from upload or from streamlit_assets/ ────────────────────
+    import os
+
+    def load_weekly(file_obj):
+        try:
+            df = pd.read_csv(file_obj)
+            df['ds'] = pd.to_datetime(df['ds'])
+            df['y_smooth'] = pd.to_numeric(df['y_smooth'], errors='coerce')
+            rows = []
+            for kec in TOP5:
+                act = df[df['Kecamatan']==kec][['ds','y_smooth']].copy()
+                if act.empty: continue
+                merged = pd.merge(fcr[kec][['ds','forecast']], act, on='ds', how='inner')
+                merged = merged[merged['y_smooth'] > 0]
+                if merged.empty: continue
+                fc_v, ac_v = merged['forecast'].values, merged['y_smooth'].values
+                rows.append({
+                    'Kecamatan': kec, 'District': dl(kec),
+                    'MAPE (%)':  round(np.mean(np.abs(fc_v-ac_v)/ac_v)*100, 1),
+                    'MAE':       int(np.mean(np.abs(fc_v-ac_v))),
+                    'RMSE':      int(np.sqrt(np.mean((fc_v-ac_v)**2))),
+                    'Bias':      int(np.mean(fc_v-ac_v)),
+                    'Minggu':    len(merged),
+                })
+            return df, pd.DataFrame(rows) if rows else None
+        except Exception as e:
+            st.error(f"Gagal membaca file: {e}")
+            return None, None
+
+    ASSET_PATH = "streamlit_assets/aktual_2026_weekly.csv"
+
+    if uploaded is not None:
+        df_actual, dv_live = load_weekly(uploaded)
+        source_label = f"📤 Upload: `{uploaded.name}`"
+    elif os.path.exists(ASSET_PATH):
+        df_actual, dv_live = load_weekly(ASSET_PATH)
+        source_label = f"📂 File: `aktual_2026_weekly.csv`"
+    else:
+        df_actual, dv_live = None, None
+        source_label = None
+
     has_actual = df_actual is not None and dv_live is not None
 
+    if not has_actual and uploaded is None:
+        st.caption("Belum ada data aktual. Upload file CSV di atas, atau jalankan kode berikut di notebook Colab kamu:")
+        st.code("""rows = []
+for kec, df_w in weekly_2026.items():
+    for _, r in df_w.iterrows():
+        rows.append({'Kecamatan': kec,
+                     'ds': r['ds'].strftime('%Y-%m-%d'),
+                     'y_smooth': round(r['y_smooth'], 4)})
+
+pd.DataFrame(rows).to_csv('/content/aktual_2026_weekly.csv', index=False)
+
+from google.colab import files
+files.download('/content/aktual_2026_weekly.csv')""", language="python")
+
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
     # ── KPI strip ─────────────────────────────────────────────────────────────
-    src      = dv_live if has_actual else dv
-    am       = src['MAPE (%)'].mean()
-    best     = src.loc[src['MAPE (%)'].idxmin()]
-    wrst     = src.loc[src['MAPE (%)'].idxmax()]
-    periode  = (f"{df_actual['ds'].min().strftime('%d %b')} – {df_actual['ds'].max().strftime('%d %b %Y')}"
-                if has_actual else "Jan – Mar 2026")
+    src     = dv_live if has_actual else dv
+    am      = src['MAPE (%)'].mean()
+    best    = src.loc[src['MAPE (%)'].idxmin()]
+    wrst    = src.loc[src['MAPE (%)'].idxmax()]
+    periode = (f"{df_actual['ds'].min().strftime('%d %b')} – "
+               f"{df_actual['ds'].max().strftime('%d %b %Y')}"
+               if has_actual else "Jan – Mar 2026")
 
     k1,k2,k3,k4 = st.columns(4)
     with k1: st.metric("Rata-rata MAPE", f"{am:.1f}%")
@@ -414,47 +480,12 @@ with t3:
     with k3: st.metric("Terlemah", dl(wrst['Kecamatan']), delta=f"MAPE {wrst['MAPE (%)']:.1f}%", delta_color="inverse")
     with k4: st.metric("Periode", periode)
 
+    if source_label:
+        st.caption(source_label)
+
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
-    # ── Status + instructions ──────────────────────────────────────────────────
-    if has_actual:
-        n_wk = dv_live['Minggu'].max() if 'Minggu' in dv_live.columns else '?'
-        st.success(f"Data aktual dimuat — **{len(df_actual)} baris** ({n_wk} minggu per district)")
-    else:
-        st.warning("**Belum ada data aktual.** Tambahkan `aktual_2026_weekly.csv` ke folder `streamlit_assets/`.")
-        with st.expander("Cara membuat file — klik untuk panduan"):
-            st.markdown("""
-Jalankan kode ini di akhir notebook training kamu, lalu simpan hasilnya:
-
-```python
-# Tambahkan di akhir notebook setelah weekly_2026 sudah dihitung
-rows = []
-for kec, df_w in weekly_2026.items():
-    for _, r in df_w.iterrows():
-        rows.append({
-            'Kecamatan': kec,
-            'ds':        r['ds'].strftime('%Y-%m-%d'),
-            'y_smooth':  round(r['y_smooth'], 4)
-        })
-
-pd.DataFrame(rows).to_csv('aktual_2026_weekly.csv', index=False)
-print("✅ Saved aktual_2026_weekly.csv")
-```
-
-Lalu taruh file `aktual_2026_weekly.csv` di folder `streamlit_assets/` dan refresh halaman.
-
----
-**Contoh isi file (hanya 65 baris untuk 5 district × 13 minggu):**
-```
-Kecamatan,ds,y_smooth
-KECAMATAN_A,2026-01-05,3950.25
-KECAMATAN_A,2026-01-12,4102.00
-KECAMATAN_B,2026-01-05,2841.50
-...
-```
-""")
-
-    # ── Charts ────────────────────────────────────────────────────────────────
+    # ── Main content ──────────────────────────────────────────────────────────
     lc, rc = st.columns([2.4, 1])
 
     with lc:
@@ -487,7 +518,7 @@ KECAMATAN_B,2026-01-05,2841.50
                              line=dict(color='#00AA00', width=1, dash='dash'))
                 fv.add_annotation(x=lb, y=1.04, yref='paper', text='Lebaran 2026',
                                   showarrow=False, font=dict(size=8, color='#00AA00'), xanchor='center')
-            lv = chart_base(320); lv['margin'] = dict(l=8,r=8,t=10,b=80)
+            lv = chart_base(300); lv['margin'] = dict(l=8,r=8,t=10,b=80)
             lv['xaxis']['tickformat'] = '%b %Y'
             lv['yaxis']['title'] = 'Servis / Minggu'
             lv['yaxis']['title_font'] = dict(size=9, color='#bbb')
@@ -503,9 +534,7 @@ KECAMATAN_B,2026-01-05,2841.50
                 with m3: st.metric("MAE",  f"{rv['MAE']:,}")
                 with m4: st.metric("Bias", f"{rv['Bias']:+,}")
         else:
-            # No actual — show summary bar chart from validation_metrics.csv
-            st.markdown('<p class="sec">MAPE per District — Jan–Mar 2026 (validation_metrics.csv)</p>',
-                        unsafe_allow_html=True)
+            st.markdown('<p class="sec">MAPE per District — Jan–Mar 2026</p>', unsafe_allow_html=True)
             fig_m = go.Figure(go.Bar(
                 x=[dl(k) for k in dv['Kecamatan']], y=dv['MAPE (%)'],
                 marker_color=[CM[k] for k in dv['Kecamatan']], marker_line_width=0,
@@ -523,8 +552,7 @@ KECAMATAN_B,2026-01-05,2841.50
 
     with rc:
         st.markdown('<p class="sec">Metrik Validasi</p>', unsafe_allow_html=True)
-        disp_src = dv_live if has_actual else dv
-        disp = disp_src[['District','MAPE (%)','RMSE','MAE','Bias']].sort_values('MAPE (%)')
+        disp = (dv_live if has_actual else dv)[['District','MAPE (%)','RMSE','MAE','Bias']].sort_values('MAPE (%)')
         st.dataframe(
             disp.style
                 .highlight_min(subset=['MAPE (%)'], color='#d4edda')
@@ -532,19 +560,14 @@ KECAMATAN_B,2026-01-05,2841.50
                 .format({'MAPE (%)':'{:.1f}%','RMSE':'{:,}','MAE':'{:,}','Bias':'{:+,}'}),
             use_container_width=True, hide_index=True, height=240)
 
-        st.markdown('<p class="sec" style="margin-top:2px">Interpretasi</p>', unsafe_allow_html=True)
+        st.markdown('<p class="sec" style="margin-top:12px">Interpretasi</p>', unsafe_allow_html=True)
         for clr2,bg,title,desc in [
-            ("#16a34a","#f0fdf4","Performa Baik","MAPE < 12% — prediksi akurat."),
-            ("#d97706","#fffbeb","Perlu Perhatian","MAPE > 15% — perlu evaluasi model."),
-            ("#CC0000","#fff5f5","Efek Lebaran","Penurunan permintaan di luar rentang pelatihan."),
+            ("#16a34a","#f0fdf4","✅ Performa Baik","MAPE di bawah 12% — prediksi akurat."),
+            ("#d97706","#fffbeb","⚠️ Perlu Perhatian","MAPE di atas 15% — perlu evaluasi model."),
+            ("#CC0000","#fff5f5","🔴 Efek Lebaran","Penurunan permintaan di luar rentang pelatihan."),
         ]:
             st.markdown(f"""
             <div class="icard" style="background:{bg};border-color:{clr2}">
               <p class="ititle" style="color:{clr2}">{title}</p>
               <p class="ibody">{desc}</p>
             </div>""", unsafe_allow_html=True)
-
-        if has_actual:
-            st.markdown(f"<p style='font-size:0.62rem;color:#bbb;margin-top:8px'>"
-                        f"Dihitung dari data aktual · {dv_live['Minggu'].max()} minggu</p>",
-                        unsafe_allow_html=True)
