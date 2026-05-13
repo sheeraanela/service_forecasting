@@ -428,10 +428,21 @@ with t3:
             return None, None
 
     # Load priority: uploaded file > streamlit_assets > fallback metrics
+    st.markdown('<p class="sec">Upload Data Aktual</p>', unsafe_allow_html=True)
+    st.caption("Upload `aktual_2026_weekly.csv` dari Google Colab — format: Kecamatan, ds, y_smooth")
+
+    # Hide the file uploader label via CSS (Streamlit renders it doubled sometimes)
+    st.markdown("""
+    <style>
+    [data-testid="stFileUploaderDropzoneInput"] + div { display: none !important; }
+    [data-testid="stFileUploader"] label { display: none !important; }
+    [data-testid="stFileUploader"] section { padding-top: 0 !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
     uploaded = st.file_uploader(
-        "Upload data aktual dari Google Colab",
+        " ",
         type="csv",
-        label_visibility="collapsed",
         help="File dengan kolom: Kecamatan, ds, y_smooth"
     )
 
