@@ -431,12 +431,20 @@ with t3:
     st.markdown('<p class="sec">Upload Data Aktual</p>', unsafe_allow_html=True)
     st.caption("Upload `aktual_2026_weekly.csv` dari Google Colab — format: Kecamatan, ds, y_smooth")
 
-    # Hide the file uploader label via CSS (Streamlit renders it doubled sometimes)
     st.markdown("""
     <style>
-    [data-testid="stFileUploaderDropzoneInput"] + div { display: none !important; }
     [data-testid="stFileUploader"] label { display: none !important; }
-    [data-testid="stFileUploader"] section { padding-top: 0 !important; }
+    [data-testid="stFileUploader"] small  { display: none !important; }
+    [data-testid="stFileUploaderDropzone"] span:first-child { display: none !important; }
+    [data-testid="stFileUploaderDropzoneInstructions"] div span { display: none !important; }
+    [data-testid="stFileUploaderDropzoneInstructions"] div span:first-child { display: none !important; }
+    button[data-testid="baseButton-secondary"] span { 
+        visibility: hidden; position: relative;
+    }
+    button[data-testid="baseButton-secondary"] span::after {
+        content: "Upload"; visibility: visible;
+        position: absolute; left: 50%; transform: translateX(-50%);
+    }
     </style>
     """, unsafe_allow_html=True)
 
