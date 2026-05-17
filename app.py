@@ -124,13 +124,6 @@ div[data-testid="stSelectbox"] > div > div {
 [data-testid="column"]:first-child { padding-left: 0 !important; }
 [data-testid="column"]:last-child  { padding-right: 0 !important; }
 [data-testid="stVerticalBlock"] { gap: 0.6rem !important; }
-
-/* File uploader — fix double button text bug */
-[data-testid="stFileUploaderDropzone"] button { overflow: hidden; }
-[data-testid="stFileUploaderDropzone"] button p { display: none; }
-[data-testid="stFileUploaderDropzone"] button::after {
-    content: "Browse files"; font-size: 0.85rem; font-weight: 500;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -434,11 +427,21 @@ with t3:
             st.error(f"Gagal membaca file: {e}")
             return None, None
 
-    # Load priority: uploaded file > streamlit_assets > fallback metrics
-    uploaded = st.file_uploader(
-        "Upload aktual_2026_weekly.csv (kolom: Kecamatan, ds, y_smooth)",
-        type="csv"
+    # Load priority: pasted text > streamlit_assets > fallback metrics
+    st.markdown('<p class="sec">Upload Data Aktual</p>', unsafe_allow_html=True)
+
+    # Use text_area — avoids Streamlit file uploader double-button bug
+    pasted = st.text_area(
+        "Paste isi file aktual_2026_weekly.csv di sini",
+        height=120,
+        placeholder="Kecamatan,ds,y_smooth\nKECAMATAN_A,2026-01-05,3950.25\nKECAMATAN_A,2026-01-12,4102.00\n...",
+        help="Copy semua isi file CSV dari Colab lalu paste di sini"
     )
+
+    uploaded = None
+    if pasted and pasted.strip():
+        import io
+        uploaded = io.StringIO(pasted.strip())
 
     if uploaded is not None:
         df_actual, dv_live = load_weekly(uploaded)
