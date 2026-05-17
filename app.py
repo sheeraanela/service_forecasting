@@ -427,21 +427,17 @@ with t3:
             st.error(f"Gagal membaca file: {e}")
             return None, None
 
-    # Load priority: pasted text > streamlit_assets > fallback metrics
+    # Load priority: uploaded file > streamlit_assets > fallback metrics
     st.markdown('<p class="sec">Upload Data Aktual</p>', unsafe_allow_html=True)
+    st.markdown("""
+    <style>
+    textarea { border-color: #ddd !important; }
+    textarea:focus { border-color: #CC0000 !important; box-shadow: none !important; }
+    </style>
+    """, unsafe_allow_html=True)
+    st.markdown("<p style='font-size:0.72rem;color:#888;margin:0 0 6px 0'>Upload <code>aktual_2026_weekly.csv</code> dari Google Colab (kolom: Kecamatan, ds, y_smooth)</p>", unsafe_allow_html=True)
 
-    # Use text_area — avoids Streamlit file uploader double-button bug
-    pasted = st.text_area(
-        "Paste isi file aktual_2026_weekly.csv di sini",
-        height=120,
-        placeholder="Kecamatan,ds,y_smooth\nKECAMATAN_A,2026-01-05,3950.25\nKECAMATAN_A,2026-01-12,4102.00\n...",
-        help="Copy semua isi file CSV dari Colab lalu paste di sini"
-    )
-
-    uploaded = None
-    if pasted and pasted.strip():
-        import io
-        uploaded = io.StringIO(pasted.strip())
+    uploaded = st.file_uploader("x", type="csv", label_visibility="hidden")
 
     if uploaded is not None:
         df_actual, dv_live = load_weekly(uploaded)
@@ -457,7 +453,7 @@ with t3:
 
     # Show instructions only when nothing is loaded
     if not has_actual:
-        with st.expander("Belum ada data aktual — klik untuk lihat cara export dari Colab"):
+        with st.expander("💡 Cara export file dari Google Colab"):
             st.code("""rows = []
 for kec, df_w in weekly_2026.items():
     for _, r in df_w.iterrows():
