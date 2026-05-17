@@ -124,6 +124,13 @@ div[data-testid="stSelectbox"] > div > div {
 [data-testid="column"]:first-child { padding-left: 0 !important; }
 [data-testid="column"]:last-child  { padding-right: 0 !important; }
 [data-testid="stVerticalBlock"] { gap: 0.6rem !important; }
+
+/* File uploader — fix double button text bug */
+[data-testid="stFileUploaderDropzone"] button { overflow: hidden; }
+[data-testid="stFileUploaderDropzone"] button p { display: none; }
+[data-testid="stFileUploaderDropzone"] button::after {
+    content: "Browse files"; font-size: 0.85rem; font-weight: 500;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -428,30 +435,9 @@ with t3:
             return None, None
 
     # Load priority: uploaded file > streamlit_assets > fallback metrics
-    st.markdown('<p class="sec">Upload Data Aktual</p>', unsafe_allow_html=True)
-    st.caption("Upload `aktual_2026_weekly.csv` dari Google Colab — format: Kecamatan, ds, y_smooth")
-
-    st.markdown("""
-    <style>
-    [data-testid="stFileUploader"] label { display: none !important; }
-    [data-testid="stFileUploader"] small  { display: none !important; }
-    [data-testid="stFileUploaderDropzone"] span:first-child { display: none !important; }
-    [data-testid="stFileUploaderDropzoneInstructions"] div span { display: none !important; }
-    [data-testid="stFileUploaderDropzoneInstructions"] div span:first-child { display: none !important; }
-    button[data-testid="baseButton-secondary"] span { 
-        visibility: hidden; position: relative;
-    }
-    button[data-testid="baseButton-secondary"] span::after {
-        content: "Upload"; visibility: visible;
-        position: absolute; left: 50%; transform: translateX(-50%);
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
     uploaded = st.file_uploader(
-        " ",
-        type="csv",
-        help="File dengan kolom: Kecamatan, ds, y_smooth"
+        "Upload aktual_2026_weekly.csv (kolom: Kecamatan, ds, y_smooth)",
+        type="csv"
     )
 
     if uploaded is not None:
