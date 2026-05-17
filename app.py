@@ -377,10 +377,6 @@ with t3:
 
     st.markdown('<p class="sec">Upload Data Aktual</p>', unsafe_allow_html=True)
 
-    uploaded = st.file_uploader(
-        "Upload aktual_2026_weekly.csv dari Google Colab (kolom: Kecamatan, ds, y_smooth)",
-        type="csv")
-
     st.markdown("""
 
 """, unsafe_allow_html=True)
