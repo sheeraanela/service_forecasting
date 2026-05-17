@@ -377,9 +377,8 @@ with t3:
 
     st.markdown('<p class="sec">Upload Data Aktual</p>', unsafe_allow_html=True)
 
-    st.markdown("""
-
-""", unsafe_allow_html=True)
+    uploaded = st.file_uploader(
+        type="csv")
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
