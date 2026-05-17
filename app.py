@@ -375,9 +375,16 @@ with t3:
     ASSET_PATH = "streamlit_assets/aktual_2026_weekly.csv"
 
     st.markdown('<p class="sec">Upload Data Aktual</p>', unsafe_allow_html=True)
-    
-    uploaded = st.file_uploader("Upload CSV", type="csv", label_visibility="collapsed")
+st.markdown(
+    "<p style='font-size:0.72rem;color:#888;margin:0 0 8px 0'>"
+    "Upload <code>aktual_2026_weekly.csv</code> dari Google Colab "
+    "(kolom: Kecamatan, ds, y_smooth)</p>",
+    unsafe_allow_html=True)
 
+col_up, col_exp = st.columns([1, 1])
+with col_up:
+    uploaded = st.file_uploader("Upload CSV", type="csv", label_visibility="collapsed")
+with col_exp:
     with st.expander("Cara export file dari Google Colab"):
         st.code("""rows = []
 for kec, df_w in weekly_2026.items():
