@@ -427,46 +427,7 @@ with t3:
             st.error(f"Gagal membaca file: {e}")
             return None, None
 
-    # Load priority: uploaded file > streamlit_assets > fallback metrics
-    st.markdown('<p class="sec">Upload Data Aktual</p>', unsafe_allow_html=True)
-    st.markdown("""
-    <style>
-    textarea { border-color: #ddd !important; }
-    textarea:focus { border-color: #CC0000 !important; box-shadow: none !important; }
-    </style>
-    """, unsafe_allow_html=True)
-    st.markdown("<p style='font-size:0.72rem;color:#888;margin:0 0 6px 0'>Upload <code>aktual_2026_weekly.csv</code> dari Google Colab (kolom: Kecamatan, ds, y_smooth)</p>", unsafe_allow_html=True)
-
-    uploaded = st.file_uploader("x", type="csv", label_visibility="hidden")
-
-    if uploaded is not None:
-        df_actual, dv_live = load_weekly(uploaded)
-        source_label = f"📤 `{uploaded.name}`"
-    elif os.path.exists(ASSET_PATH):
-        df_actual, dv_live = load_weekly(ASSET_PATH)
-        source_label = "📂 `aktual_2026_weekly.csv`"
-    else:
-        df_actual, dv_live = None, None
-        source_label = None
-
-    has_actual = df_actual is not None and dv_live is not None
-
-    # Show instructions only when nothing is loaded
-    if not has_actual:
-        with st.expander("💡 Cara export file dari Google Colab"):
-            st.code("""rows = []
-for kec, df_w in weekly_2026.items():
-    for _, r in df_w.iterrows():
-        rows.append({'Kecamatan': kec,
-                     'ds': r['ds'].strftime('%Y-%m-%d'),
-                     'y_smooth': round(r['y_smooth'], 4)})
-
-pd.DataFrame(rows).to_csv('/content/aktual_2026_weekly.csv', index=False)
-
-from google.colab import files
-files.download('/content/aktual_2026_weekly.csv')""", language="python")
-
-    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+   
 
     # ── KPI strip ─────────────────────────────────────────────────────────────
     src     = dv_live if has_actual else dv
