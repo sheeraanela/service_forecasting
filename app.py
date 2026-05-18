@@ -180,7 +180,7 @@ st.markdown("""
 <div class="app-hdr">
   <div style="padding:0 2rem">
     <p class="app-hdr-title">AHASS Prakiraan Permintaan</p>
-    <p class="app-hdr-sub">Prakiraan Servis Mingguan — Top 5 District Jakarta · LightGBM + SHAP XAI</p>
+    <p class="app-hdr-sub">Prakiraan Servis Mingguan — Top 5 District Jakarta · XGBoost + SHAP XAI</p>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -194,7 +194,7 @@ with c2:
     st.markdown(
         f"<div style='padding:8px 0'>"
         f"<span style='font-size:0.8rem;color:#444'>"
-        f"<b>Model:</b> LightGBM &nbsp;·&nbsp; <b>Pelatihan:</b> 2022–2024 &nbsp;·&nbsp; "
+        f"<b>Model:</b> XGBoost &nbsp;·&nbsp; <b>Pelatihan:</b> 2022–2024 &nbsp;·&nbsp; "
         f"<b>Uji:</b> 2025 &nbsp;·&nbsp; "
         f"<b>MAPE {dl(sel)}:</b> <span style='color:#CC0000;font-weight:700'>{mp:.1f}%</span>"
         f"</span></div>", unsafe_allow_html=True)
@@ -246,7 +246,7 @@ with t1:
             line=dict(color='#3B6D11', dash='dash', width=1.2)))
 
         fig.add_trace(go.Scatter(
-            x=fds, y=fc['forecast'], mode='lines', name='Prakiraan (LightGBM)',
+            x=fds, y=fc['forecast'], mode='lines', name='Prakiraan (XGBoost)',
             line=dict(color=CM[sel], width=2)))
 
         lb = LEB.get(2026)
