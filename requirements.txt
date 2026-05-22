@@ -2,8 +2,8 @@ streamlit
 pandas
 numpy
 plotly
+scikit-learn
+xgboost
 lightgbm
 shap
 matplotlib
-scikit-learn
-openpyxl
