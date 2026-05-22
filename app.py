@@ -4,8 +4,6 @@ import numpy as np
 import plotly.graph_objects as go
 import pickle
 import matplotlib; matplotlib.use('Agg')
-import io
-import os
 
 st.set_page_config(page_title="AHASS Prakiraan", layout="wide", initial_sidebar_state="collapsed")
 
@@ -14,14 +12,17 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 * { font-family: 'Inter', sans-serif !important; }
 
+/* Hide chrome only */
 #MainMenu, footer, header,
 [data-testid="stDecoration"], [data-testid="stStatusWidget"],
 .stDeployButton, [data-testid="collapsedControl"],
 [data-testid="stSidebar"] { display: none !important; }
 
+/* Clean background */
 .stApp { background: #f8f8f8 !important; }
 .block-container { padding: 0 2rem 2rem 2rem !important; max-width: 100% !important; }
 
+/* Red header block */
 .app-hdr {
     background: #CC0000; padding: 14px 0 12px 0;
     margin: 0 -2rem 1.2rem -2rem;
@@ -32,6 +33,14 @@ st.markdown("""
 }
 .app-hdr-sub { color: rgba(255,255,255,0.72) !important; font-size: 0.68rem; margin: 2px 0 0 0; }
 
+/* Control strip */
+.ctrl-strip {
+    background: #fff; border-radius: 8px;
+    padding: 10px 16px; margin-bottom: 1rem;
+    border: 1px solid #e8e8e8;
+}
+
+/* Metrics */
 [data-testid="stMetricLabel"] {
     font-size: 0.6rem !important; font-weight: 700 !important;
     text-transform: uppercase; letter-spacing: 0.9px; color: #888 !important;
@@ -45,6 +54,7 @@ st.markdown("""
 }
 [data-testid="stMetricDelta"] { display: none !important; }
 
+/* Selectbox */
 div[data-testid="stSelectbox"] label {
     font-size: 0.62rem !important; font-weight: 700 !important;
     text-transform: uppercase !important; letter-spacing: 0.9px !important; color: #888 !important;
@@ -54,6 +64,7 @@ div[data-testid="stSelectbox"] > div > div {
     border-radius: 6px !important; background: #fff !important;
 }
 
+/* Tabs */
 .stTabs [data-baseweb="tab-list"] {
     gap: 0; padding: 0; border-bottom: 2px solid #CC0000 !important; background: transparent;
 }
@@ -68,12 +79,20 @@ div[data-testid="stSelectbox"] > div > div {
 [data-baseweb="tab-border"] { display: none !important; }
 .stTabs [data-baseweb="tab-panel"] { padding: 1rem 0 0 0 !important; }
 
+/* Section heading */
 .sec {
     font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
     letter-spacing: 1px; color: #888; border-bottom: 1.5px solid #CC0000;
     padding-bottom: 4px; margin: 0 0 10px 0;
 }
 
+/* White card */
+.card {
+    background: #fff; border-radius: 8px; padding: 14px 16px;
+    border: 1px solid #e8e8e8; height: 100%;
+}
+
+/* District row */
 .drow { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid #f2f2f2; }
 .ddot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
 .dname { font-size:0.75rem; font-weight:600; color:#111; }
@@ -81,6 +100,7 @@ div[data-testid="stSelectbox"] > div > div {
 .dval  { font-size:0.78rem; font-weight:700; }
 .dsum  { font-size:0.58rem; color:#bbb; }
 
+/* Feature row */
 .frow { display:flex; align-items:center; gap:6px; margin-bottom:8px; }
 .fpill { width:18px; height:18px; border-radius:4px; flex-shrink:0;
          display:flex; align-items:center; justify-content:center; font-size:0.6rem; font-weight:700; }
@@ -90,13 +110,16 @@ div[data-testid="stSelectbox"] > div > div {
 .fbar  { height:3px; background:#eee; border-radius:2px; margin-top:3px; }
 .fimp  { font-size:0.68rem; font-weight:700; width:40px; text-align:right; flex-shrink:0; }
 
+/* Note */
 .note { background:#fff5f5; border-left:2px solid #CC0000; padding:6px 10px;
         font-size:0.68rem; color:#555; margin-top:8px; border-radius:0 4px 4px 0; }
 
+/* Interp card */
 .icard { border-left:3px solid; padding:8px 12px; margin-bottom:8px; border-radius:0 6px 6px 0; }
 .ititle { font-size:0.72rem; font-weight:700; margin:0 0 2px 0; }
 .ibody  { font-size:0.65rem; color:#555; margin:0; }
 
+/* Col gaps */
 [data-testid="column"] { padding: 0 6px !important; }
 [data-testid="column"]:first-child { padding-left: 0 !important; }
 [data-testid="column"]:last-child  { padding-right: 0 !important; }
@@ -104,7 +127,7 @@ div[data-testid="stSelectbox"] > div > div {
 </style>
 """, unsafe_allow_html=True)
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ── Data & helpers ─────────────────────────────────────────────────────────────
 FEAT = {
     'lag_1':'Jumlah servis 1 minggu lalu', 'lag_2':'Jumlah servis 2 minggu lalu',
     'lag_4':'Jumlah servis 4 minggu lalu (±1 bln)', 'lag_8':'Jumlah servis 8 minggu lalu (±2 bln)',
@@ -137,30 +160,47 @@ lgb, fcr, shp, cfg, hdf, dv = load()
 TOP5 = cfg['TOP5']; COLS = cfg['KEC_COLORS']; CM = dict(zip(TOP5, COLS))
 LEB  = {yr: v[0] for yr, v in cfg['LEBARAN'].items()}
 dv   = dv.copy(); dv['District'] = dv['Kecamatan'].apply(dl)
+vmape = dict(zip(dv['Kecamatan'], dv['MAPE (%)']))
 
-def to_excel(dfs_dict):
-    """Build an Excel file with one sheet per district."""
-    buf = io.BytesIO()
-    with pd.ExcelWriter(buf, engine='openpyxl') as writer:
-        # All districts in one sheet
-        all_rows = []
-        for kec, df in dfs_dict.items():
-            tmp = df[['ds','forecast','optimistic','pessimistic']].copy()
-            tmp.insert(0, 'District', dl(kec))
-            tmp.columns = ['District','Tanggal','Prakiraan','Optimistis (+18%)','Pesimistis (-16%)']
-            all_rows.append(tmp)
-        all_df = pd.concat(all_rows, ignore_index=True)
-        all_df['Tanggal'] = all_df['Tanggal'].dt.strftime('%Y-%m-%d')
-        all_df.to_excel(writer, sheet_name='Semua District', index=False)
+def get_actuals(kec):
+    """No weekly 2026 actuals in any data file. Returns summary metrics only."""
+    row = dv[dv['Kecamatan'] == kec]
+    if row.empty: return None
+    return row.iloc[0]
 
-        # One sheet per district
-        for kec, df in dfs_dict.items():
-            tmp = df[['ds','forecast','optimistic','pessimistic']].copy()
-            tmp.columns = ['Tanggal','Prakiraan','Optimistis (+18%)','Pesimistis (-16%)']
-            tmp['Tanggal'] = tmp['Tanggal'].dt.strftime('%Y-%m-%d')
-            tmp.to_excel(writer, sheet_name=dl(kec), index=False)
-    buf.seek(0)
-    return buf
+def load_weekly_actual():
+    """Load pre-processed weekly smoothed actuals from streamlit_assets/."""
+    import os
+    PATH = "streamlit_assets/aktual_2026_weekly.csv"
+    if not os.path.exists(PATH):
+        return None, None
+    try:
+        df = pd.read_csv(PATH)
+        df['ds'] = pd.to_datetime(df['ds'])
+        df['y_smooth'] = pd.to_numeric(df['y_smooth'], errors='coerce')
+
+        # Compute live validation metrics
+        rows = []
+        for kec in TOP5:
+            act = df[df['Kecamatan'] == kec][['ds','y_smooth']].copy()
+            if act.empty: continue
+            merged = pd.merge(fcr[kec][['ds','forecast']], act, on='ds', how='inner')
+            merged = merged[merged['y_smooth'] > 0]
+            if merged.empty: continue
+            fc_v, ac_v = merged['forecast'].values, merged['y_smooth'].values
+            rows.append({
+                'Kecamatan': kec, 'District': dl(kec),
+                'MAPE (%)':  round(np.mean(np.abs(fc_v-ac_v)/ac_v)*100, 1),
+                'MAE':       int(np.mean(np.abs(fc_v-ac_v))),
+                'RMSE':      int(np.sqrt(np.mean((fc_v-ac_v)**2))),
+                'Bias':      int(np.mean(fc_v-ac_v)),
+                'Minggu':    len(merged),
+            })
+        dv_live = pd.DataFrame(rows) if rows else None
+        return df, dv_live
+    except Exception as e:
+        st.error(f"Gagal membaca aktual_2026_weekly.csv: {e}")
+        return None, None
 
 def chart_base(h=300):
     return dict(
@@ -175,45 +215,50 @@ def chart_base(h=300):
                     font=dict(size=8, color='#666'),
                     bgcolor='rgba(255,255,255,0.9)', bordercolor='#eee', borderwidth=1))
 
-# ── HEADER ────────────────────────────────────────────────────────────────────
+# ── HEADER ─────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="app-hdr">
   <div style="padding:0 2rem">
     <p class="app-hdr-title">AHASS Prakiraan Permintaan</p>
-    <p class="app-hdr-sub">Prakiraan Servis Mingguan — Top 5 District Jakarta · XGBoost + SHAP XAI</p>
+    <p class="app-hdr-sub">Prakiraan Servis Mingguan — Top 5 District Jakarta · LightGBM + SHAP XAI</p>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
 # ── CONTROLS ──────────────────────────────────────────────────────────────────
-c1, c2 = st.columns([2, 5])
-with c1:
-    sel = st.selectbox("District", TOP5, format_func=dl)
-with c2:
-    mp = lgb[sel]['mape'] * 100
-    st.markdown(
-        f"<div style='padding:8px 0'>"
-        f"<span style='font-size:0.8rem;color:#444'>"
-        f"<b>Model:</b> XGBoost &nbsp;·&nbsp; <b>Pelatihan:</b> 2022–2024 &nbsp;·&nbsp; "
-        f"<b>Uji:</b> 2025 &nbsp;·&nbsp; "
-        f"<b>MAPE {dl(sel)}:</b> <span style='color:#CC0000;font-weight:700'>{mp:.1f}%</span>"
-        f"</span></div>", unsafe_allow_html=True)
+with st.container():
+    c1, c2, c3 = st.columns([2, 4, 3])
+    with c1:
+        sel = st.selectbox("District", TOP5, format_func=dl)
+    with c2:
+        fc = fcr[sel]
+        wo = [f"Minggu {i+1} — {d.strftime('%d %b %Y')}" for i,d in enumerate(fc['ds'])]
+        sw = st.selectbox("Minggu Prakiraan", wo)
+        wi = wo.index(sw)
+    with c3:
+        mp = lgb[sel]['mape'] * 100
+        st.markdown(
+            f"<div style='padding:8px 0'>"
+            f"<span style='font-size:0.8rem;color:#444'>"
+            f"<b>Model:</b> LightGBM &nbsp;·&nbsp; <b>Pelatihan:</b> 2022–2024 &nbsp;·&nbsp; "
+            f"<b>Uji:</b> 2025 &nbsp;·&nbsp; "
+            f"<b>MAPE {dl(sel)}:</b> <span style='color:#CC0000;font-weight:700'>{mp:.1f}%</span>"
+            f"</span></div>", unsafe_allow_html=True)
 
 st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
-fc = fcr[sel]
-
-# ── TABS ──────────────────────────────────────────────────────────────────────
-t1, t2 = st.tabs(["  PRAKIRAAN  ", "  PENJELASAN XAI  "])
+# ── TABS ───────────────────────────────────────────────────────────────────────
+row = fc.iloc[wi]
+t1, t2, t3 = st.tabs(["  PRAKIRAAN  ", "  PENJELASAN XAI  ", "  VALIDASI 2026  "])
 
 # ══════════════════════════════════════════════════════════════════════════════
 with t1:
-    avg_fc = fc['forecast'].mean()
-    k1, k2, k3, k4 = st.columns(4)
+    # KPI row
+    k1,k2,k3,k4 = st.columns(4)
     with k1: st.metric("District", dl(sel))
-    with k2: st.metric("Rata-rata / Minggu", f"{avg_fc:,.0f}")
-    with k3: st.metric("Optimistis +18%", f"{avg_fc*1.18:,.0f}")
-    with k4: st.metric("Pesimistis -16%", f"{avg_fc*0.84:,.0f}")
+    with k2: st.metric("Prakiraan Dasar", f"{row['forecast']:,.0f}")
+    with k3: st.metric("Optimistis +18%", f"{row['optimistic']:,.0f}")
+    with k4: st.metric("Pesimistis -16%", f"{row['pessimistic']:,.0f}")
 
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
@@ -221,82 +266,38 @@ with t1:
 
     with gc:
         st.markdown('<p class="sec">Grafik Prakiraan 52 Minggu</p>', unsafe_allow_html=True)
-
-        h   = hdf[hdf['Kecamatan Bengkel']==sel].tail(26)
+        h = hdf[hdf['Kecamatan Bengkel']==sel].tail(26)
         fds = fc['ds'].astype(str)
-
         fig = go.Figure()
-
-        fig.add_trace(go.Bar(
-            x=h['Tanggal Servis'].astype(str), y=h['Jumlah Servis'],
-            name='Historis 2025', marker_color='#DAEAF8', marker_line_width=0))
-
+        fig.add_trace(go.Bar(x=h['Tanggal Servis'].astype(str), y=h['Jumlah Servis'],
+                             name='Historis 2025', marker_color='#DAEAF8', marker_line_width=0))
         fig.add_trace(go.Scatter(
             x=pd.concat([fds, fds[::-1]]),
             y=pd.concat([fc['optimistic'], fc['pessimistic'][::-1]]),
             fill='toself', fillcolor='rgba(204,0,0,0.07)',
             line=dict(color='rgba(0,0,0,0)'), name='Rentang Kepercayaan'))
-
-        fig.add_trace(go.Scatter(
-            x=fds, y=fc['pessimistic'], mode='lines', name='Pesimistis -16%',
-            line=dict(color='#CCC', dash='dash', width=1.2)))
-
-        fig.add_trace(go.Scatter(
-            x=fds, y=fc['optimistic'], mode='lines', name='Optimistis +18%',
-            line=dict(color='#3B6D11', dash='dash', width=1.2)))
-
-        fig.add_trace(go.Scatter(
-            x=fds, y=fc['forecast'], mode='lines', name='Prakiraan (XGBoost)',
-            line=dict(color=CM[sel], width=2)))
-
+        fig.add_trace(go.Scatter(x=fds, y=fc['pessimistic'], mode='lines', name='Pesimistis',
+                                 line=dict(color='#CCC', dash='dash', width=1.2)))
+        fig.add_trace(go.Scatter(x=fds, y=fc['optimistic'], mode='lines', name='Optimistis',
+                                 line=dict(color='#3B6D11', dash='dash', width=1.2)))
+        fig.add_trace(go.Scatter(x=fds, y=fc['forecast'], mode='lines', name='Prakiraan (LightGBM)',
+                                 line=dict(color=CM[sel], width=2)))
         lb = LEB.get(2026)
         if lb:
             fig.add_shape(type='line', x0=lb, x1=lb, y0=0, y1=1, yref='paper',
                           line=dict(color='#00AA00', width=1, dash='dash'))
-            fig.add_annotation(x=lb, y=1.04, yref='paper', text='Lebaran',
-                               showarrow=False, font=dict(size=8, color='#00AA00'),
-                               xanchor='center')
-
+            fig.add_annotation(x=lb, y=1.04, yref='paper', text='Lebaran', showarrow=False,
+                               font=dict(size=8, color='#00AA00'), xanchor='center')
+        fig.add_shape(type='line',
+                      x0=str(fc['ds'].iloc[wi]), x1=str(fc['ds'].iloc[wi]),
+                      y0=0, y1=1, yref='paper',
+                      line=dict(color='#CC0000', width=1, dash='dot'))
         layout = chart_base(300)
         layout['xaxis']['tickformat'] = '%b %Y'
         layout['yaxis']['title'] = 'Servis/Minggu'
         layout['yaxis']['title_font'] = dict(size=9, color='#bbb')
         fig.update_layout(**layout)
-        st.plotly_chart(fig, use_container_width=True,
-                        config={
-                            'displayModeBar': True,
-                            'modeBarButtonsToRemove': ['select2d','lasso2d','toImage'],
-                            'displaylogo': False
-                        })
-
-        # ── Download section ──────────────────────────────────────────────────
-        st.markdown('<p class="sec" style="margin-top:8px">Download Hasil Prakiraan</p>',
-                    unsafe_allow_html=True)
-
-        d1, d2 = st.columns(2)
-
-        with d1:
-            # Download selected district as CSV
-            csv_df = fc[['ds','forecast','optimistic','pessimistic']].copy()
-            csv_df.columns = ['Tanggal','Prakiraan','Optimistis (+18%)','Pesimistis (-16%)']
-            csv_df['Tanggal'] = csv_df['Tanggal'].dt.strftime('%Y-%m-%d')
-            csv_bytes = csv_df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label=f"Download CSV — {dl(sel)}",
-                data=csv_bytes,
-                file_name=f"prakiraan_{dl(sel).replace(' ','_')}_2026.csv",
-                mime="text/csv",
-                use_container_width=True)
-
-        with d2:
-            # Download all districts as Excel
-            excel_buf = to_excel(fcr)
-            st.download_button(
-                label="Download Excel — Semua District",
-                data=excel_buf,
-                file_name="prakiraan_ahass_2026_semua_district.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
     with sc:
         st.markdown('<p class="sec">Semua District</p>', unsafe_allow_html=True)
@@ -317,8 +318,9 @@ with t1:
 
 # ══════════════════════════════════════════════════════════════════════════════
 with t2:
-    sr = shp[sel]
-    ii = len(sr['shap_values']) // 2
+    xai = fcr[sel].iloc[wi]
+    sr  = shp[sel]
+    ii  = min(wi, len(sr['shap_values'])-1)
     sv, xv = sr['shap_values'][ii], sr['X_test'][ii]
     sdf = pd.DataFrame({'feature': sr['feat_cols'], 'shap': sv, 'value': xv})
     sdf['abs'] = sdf['shap'].abs()
@@ -331,9 +333,9 @@ with t2:
         st.markdown('<p class="sec">5 Fitur Paling Berpengaruh</p>', unsafe_allow_html=True)
         st.markdown(
             f"<p style='font-size:0.8rem;font-weight:700;margin:0 0 2px 0'>"
-            f"Rata-rata Prakiraan: <span style='color:#CC0000'>{fc['forecast'].mean():,.0f}</span> servis/minggu</p>"
-            f"<p style='font-size:0.65rem;color:#bbb;margin:0 0 12px 0'>{dl(sel)}</p>",
-            unsafe_allow_html=True)
+            f"Prakiraan: <span style='color:#CC0000'>{xai['forecast']:,.0f}</span> servis/minggu</p>"
+            f"<p style='font-size:0.65rem;color:#bbb;margin:0 0 12px 0'>"
+            f"{xai['ds'].strftime('%d %b %Y')} · {dl(sel)}</p>", unsafe_allow_html=True)
 
         for _, r in top5f.iterrows():
             pos  = r['shap'] > 0
@@ -392,3 +394,183 @@ with t2:
 
         st.markdown('<p class="sec">Kamus Fitur</p>', unsafe_allow_html=True)
         st.dataframe(FEAT_DF, use_container_width=True, hide_index=True, height=145)
+
+# ══════════════════════════════════════════════════════════════════════════════
+with t3:
+    # ── File uploader ─────────────────────────────────────────────────────────
+    import os
+    ASSET_PATH = "streamlit_assets/aktual_2026_weekly.csv"
+
+    def load_weekly(file_obj):
+        try:
+            df = pd.read_csv(file_obj)
+            df['ds'] = pd.to_datetime(df['ds'])
+            df['y_smooth'] = pd.to_numeric(df['y_smooth'], errors='coerce')
+            rows = []
+            for kec in TOP5:
+                act = df[df['Kecamatan']==kec][['ds','y_smooth']].copy()
+                if act.empty: continue
+                merged = pd.merge(fcr[kec][['ds','forecast']], act, on='ds', how='inner')
+                merged = merged[merged['y_smooth'] > 0]
+                if merged.empty: continue
+                fc_v, ac_v = merged['forecast'].values, merged['y_smooth'].values
+                rows.append({
+                    'Kecamatan': kec, 'District': dl(kec),
+                    'MAPE (%)':  round(np.mean(np.abs(fc_v-ac_v)/ac_v)*100, 1),
+                    'MAE':       int(np.mean(np.abs(fc_v-ac_v))),
+                    'RMSE':      int(np.sqrt(np.mean((fc_v-ac_v)**2))),
+                    'Bias':      int(np.mean(fc_v-ac_v)),
+                    'Minggu':    len(merged),
+                })
+            return df, pd.DataFrame(rows) if rows else None
+        except Exception as e:
+            st.error(f"Gagal membaca file: {e}")
+            return None, None
+
+    # Load priority: uploaded file > streamlit_assets > fallback metrics
+    st.markdown('<p class="sec">Upload Data Aktual</p>', unsafe_allow_html=True)
+    st.markdown("""
+    <style>
+    textarea { border-color: #ddd !important; }
+    textarea:focus { border-color: #CC0000 !important; box-shadow: none !important; }
+    </style>
+    """, unsafe_allow_html=True)
+    st.markdown("<p style='font-size:0.72rem;color:#888;margin:0 0 6px 0'>Upload <code>aktual_2026_weekly.csv</code> dari Google Colab (kolom: Kecamatan, ds, y_smooth)</p>", unsafe_allow_html=True)
+
+    uploaded = st.file_uploader("x", type="csv", label_visibility="hidden")
+
+    if uploaded is not None:
+        df_actual, dv_live = load_weekly(uploaded)
+        source_label = f"📤 `{uploaded.name}`"
+    elif os.path.exists(ASSET_PATH):
+        df_actual, dv_live = load_weekly(ASSET_PATH)
+        source_label = "📂 `aktual_2026_weekly.csv`"
+    else:
+        df_actual, dv_live = None, None
+        source_label = None
+
+    has_actual = df_actual is not None and dv_live is not None
+
+    # Show instructions only when nothing is loaded
+    if not has_actual:
+        with st.expander("💡 Cara export file dari Google Colab"):
+            st.code("""rows = []
+for kec, df_w in weekly_2026.items():
+    for _, r in df_w.iterrows():
+        rows.append({'Kecamatan': kec,
+                     'ds': r['ds'].strftime('%Y-%m-%d'),
+                     'y_smooth': round(r['y_smooth'], 4)})
+
+pd.DataFrame(rows).to_csv('/content/aktual_2026_weekly.csv', index=False)
+
+from google.colab import files
+files.download('/content/aktual_2026_weekly.csv')""", language="python")
+
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
+    # ── KPI strip ─────────────────────────────────────────────────────────────
+    src     = dv_live if has_actual else dv
+    am      = src['MAPE (%)'].mean()
+    best    = src.loc[src['MAPE (%)'].idxmin()]
+    wrst    = src.loc[src['MAPE (%)'].idxmax()]
+    periode = (f"{df_actual['ds'].min().strftime('%d %b')} – "
+               f"{df_actual['ds'].max().strftime('%d %b %Y')}"
+               if has_actual else "Jan – Mar 2026")
+
+    k1,k2,k3,k4 = st.columns(4)
+    with k1: st.metric("Rata-rata MAPE", f"{am:.1f}%")
+    with k2: st.metric("Terbaik",  dl(best['Kecamatan']), delta=f"MAPE {best['MAPE (%)']:.1f}%")
+    with k3: st.metric("Terlemah", dl(wrst['Kecamatan']), delta=f"MAPE {wrst['MAPE (%)']:.1f}%", delta_color="inverse")
+    with k4: st.metric("Periode", periode)
+
+    if source_label:
+        st.caption(source_label)
+
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
+    # ── Main content ──────────────────────────────────────────────────────────
+    lc, rc = st.columns([2.4, 1])
+
+    with lc:
+        if has_actual:
+            st.markdown('<p class="sec">Prakiraan vs Aktual 2026</p>', unsafe_allow_html=True)
+            clr = CM[sel]; fck = fcr[sel]
+            hk  = hdf[hdf['Kecamatan Bengkel']==sel].tail(26)
+            fds = fck['ds'].astype(str)
+            act_sel = df_actual[df_actual['Kecamatan']==sel].sort_values('ds')
+
+            fv = go.Figure()
+            fv.add_trace(go.Bar(x=hk['Tanggal Servis'].astype(str), y=hk['Jumlah Servis'],
+                                name='Historis 2025', marker_color='#DAEAF8',
+                                marker_line_width=0, opacity=0.85))
+            fv.add_trace(go.Scatter(
+                x=pd.concat([fds, fds[::-1]]),
+                y=pd.concat([fck['optimistic'], fck['pessimistic'][::-1]]),
+                fill='toself', fillcolor='rgba(204,0,0,0.06)',
+                line=dict(color='rgba(0,0,0,0)'), name='Rentang Kepercayaan'))
+            fv.add_trace(go.Scatter(x=fds, y=fck['forecast'], mode='lines',
+                                    name='Prakiraan (LightGBM)', line=dict(color=clr, width=2)))
+            fv.add_trace(go.Scatter(
+                x=act_sel['ds'].astype(str), y=act_sel['y_smooth'],
+                mode='lines+markers', name='Aktual 2026 (smoothed)',
+                line=dict(color='#CC0000', width=2.2),
+                marker=dict(size=5, color='#CC0000')))
+            lb = LEB.get(2026)
+            if lb:
+                fv.add_shape(type='line', x0=lb, x1=lb, y0=0, y1=1, yref='paper',
+                             line=dict(color='#00AA00', width=1, dash='dash'))
+                fv.add_annotation(x=lb, y=1.04, yref='paper', text='Lebaran 2026',
+                                  showarrow=False, font=dict(size=8, color='#00AA00'), xanchor='center')
+            lv = chart_base(300); lv['margin'] = dict(l=8,r=8,t=10,b=80)
+            lv['xaxis']['tickformat'] = '%b %Y'
+            lv['yaxis']['title'] = 'Servis / Minggu'
+            lv['yaxis']['title_font'] = dict(size=9, color='#bbb')
+            fv.update_layout(**lv)
+            st.plotly_chart(fv, use_container_width=True, config={'displayModeBar': False})
+
+            rv = dv_live[dv_live['Kecamatan']==sel]
+            if not rv.empty:
+                rv = rv.iloc[0]
+                m1,m2,m3,m4 = st.columns(4)
+                with m1: st.metric("MAPE", f"{rv['MAPE (%)']:.1f}%")
+                with m2: st.metric("RMSE", f"{rv['RMSE']:,}")
+                with m3: st.metric("MAE",  f"{rv['MAE']:,}")
+                with m4: st.metric("Bias", f"{rv['Bias']:+,}")
+        else:
+            st.markdown('<p class="sec">MAPE per District — Jan–Mar 2026</p>', unsafe_allow_html=True)
+            fig_m = go.Figure(go.Bar(
+                x=[dl(k) for k in dv['Kecamatan']], y=dv['MAPE (%)'],
+                marker_color=[CM[k] for k in dv['Kecamatan']], marker_line_width=0,
+                text=[f"{v:.1f}%" for v in dv['MAPE (%)']],
+                textposition='outside', textfont=dict(size=10, color='#333')))
+            fig_m.add_shape(type='line', x0=-0.5, x1=4.5, y0=15, y1=15,
+                            line=dict(color='#CC0000', width=1.2, dash='dash'))
+            fig_m.add_annotation(x=4.4, y=15, text='Target 15%', showarrow=False,
+                                 font=dict(size=9, color='#CC0000'), yanchor='bottom')
+            lm = chart_base(260); lm['showlegend']=False; lm['margin']=dict(l=8,r=8,t=20,b=50)
+            lm['xaxis']['showgrid']=False; lm['yaxis']['title']='MAPE (%)'
+            lm['yaxis']['range']=[0, dv['MAPE (%)'].max()*1.3]
+            fig_m.update_layout(**lm)
+            st.plotly_chart(fig_m, use_container_width=True, config={'displayModeBar': False})
+
+    with rc:
+        st.markdown('<p class="sec">Metrik Validasi</p>', unsafe_allow_html=True)
+        disp = (dv_live if has_actual else dv)[['District','MAPE (%)','RMSE','MAE','Bias']].sort_values('MAPE (%)')
+        st.dataframe(
+            disp.style
+                .highlight_min(subset=['MAPE (%)'], color='#d4edda')
+                .highlight_max(subset=['MAPE (%)'], color='#f8d7da')
+                .format({'MAPE (%)':'{:.1f}%','RMSE':'{:,}','MAE':'{:,}','Bias':'{:+,}'}),
+            use_container_width=True, hide_index=True, height=240)
+
+        st.markdown('<p class="sec" style="margin-top:12px">Interpretasi</p>', unsafe_allow_html=True)
+        for clr2,bg,title,desc in [
+            ("#16a34a","#f0fdf4","✅ Performa Baik","MAPE di bawah 12% — prediksi akurat."),
+            ("#d97706","#fffbeb","⚠️ Perlu Perhatian","MAPE di atas 15% — perlu evaluasi model."),
+            ("#CC0000","#fff5f5","🔴 Efek Lebaran","Penurunan permintaan di luar rentang pelatihan."),
+        ]:
+            st.markdown(f"""
+            <div class="icard" style="background:{bg};border-color:{clr2}">
+              <p class="ititle" style="color:{clr2}">{title}</p>
+              <p class="ibody">{desc}</p>
+            </div>""", unsafe_allow_html=True)
