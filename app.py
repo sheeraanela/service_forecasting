@@ -565,7 +565,7 @@ with t3:
         </style>
         """, unsafe_allow_html=True)
 
-        uploaded = st.file_uploader("", type="csv", label_visibility="collapsed")
+        uploaded = st.file_uploader("\u200b", type="csv")
 
         if uploaded is not None:
             try:
