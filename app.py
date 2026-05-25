@@ -468,6 +468,14 @@ with t2:
         st.markdown('<p class="sec">Kamus Fitur</p>', unsafe_allow_html=True)
         st.dataframe(FEAT_DF, use_container_width=True, hide_index=True, height=145)
 
+st.markdown("""
+<style>
+[data-testid="stFileUploaderDropzone"] > div:first-child { display: none !important; }
+</style>
+""", unsafe_allow_html=True)
+
+uploaded = st.file_uploader("", type="csv", label_visibility="collapsed")
+
 # ══════════════════════════════════════════════════════════════════════════════
 with t3:
     # ── Pilih sumber data ─────────────────────────────────────────────────────
