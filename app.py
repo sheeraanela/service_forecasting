@@ -554,7 +554,7 @@ with t3:
     else:
         st.markdown(
             "<p style='font-size:0.72rem;color:#888;margin:0 0 6px 0'>"
-            "Upload file CSV dengan kolom: <code>Kecamatan</code>, "
+            " file CSV dengan kolom: <code>Kecamatan</code>, "
             "<code>Tanggal Servis</code>, <code>Permintaan Servis</code></p>",
             unsafe_allow_html=True)
 
