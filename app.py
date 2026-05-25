@@ -72,11 +72,6 @@ div[data-testid="stSelectbox"] > div > div {
     padding-bottom: 4px; margin: 0 0 10px 0;
 }
 
-.card {
-    background: #fff; border-radius: 8px; padding: 14px 16px;
-    border: 1px solid #e8e8e8;
-}
-
 .drow { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid #f2f2f2; }
 .ddot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
 .dname { font-size:0.75rem; font-weight:600; color:#111; }
@@ -99,13 +94,6 @@ div[data-testid="stSelectbox"] > div > div {
 .icard { border-left:3px solid; padding:8px 12px; margin-bottom:8px; border-radius:0 6px 6px 0; }
 .ititle { font-size:0.72rem; font-weight:700; margin:0 0 2px 0; }
 .ibody  { font-size:0.65rem; color:#555; margin:0; }
-
-.range-btn {
-    display: inline-block; padding: 4px 12px; margin-right: 4px;
-    border: 1.5px solid #ddd; border-radius: 4px; font-size: 0.7rem;
-    font-weight: 600; cursor: pointer; background: #fff; color: #444;
-}
-.range-btn.active { background: #CC0000; color: #fff; border-color: #CC0000; }
 
 [data-testid="column"] { padding: 0 6px !important; }
 [data-testid="column"]:first-child { padding-left: 0 !important; }
@@ -148,9 +136,16 @@ def load():
     df['Tanggal Servis'] = pd.to_datetime(df['Tanggal Servis'])
     for k in fcr:
         fcr[k]['Tanggal Servis'] = pd.to_datetime(fcr[k]['Tanggal Servis'])
-    return xgb_m, fcr, shp, cfg, df
 
-xgb_m, fcr, shp, cfg, hdf = load()
+    # Load validasi 2026 default
+    dv26 = pd.read_csv(f"{b}/validation_2026.csv") if os.path.exists(f"{b}/validation_2026.csv") else None
+    with open(f"{b}/validation_merged.pkl", "rb") as f: vm26 = pickle.load(f)
+    for k in vm26:
+        vm26[k]['Tanggal Servis'] = pd.to_datetime(vm26[k]['Tanggal Servis'])
+
+    return xgb_m, fcr, shp, cfg, df, dv26, vm26
+
+xgb_m, fcr, shp, cfg, hdf, dv26, vm26 = load()
 TOP5 = cfg['kecamatan']
 COLS = cfg['warna_kec']
 CM   = dict(zip(TOP5, COLS))
@@ -180,11 +175,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── CONTROLS ───────────────────────────────────────────────────────────────────
-c1, c2, c3 = st.columns([2, 3, 4])
+c1, c2 = st.columns([2, 5])
 with c1:
     sel = st.selectbox("District", TOP5, format_func=dl)
 with c2:
-    fc = fcr[sel]
     mp = xgb_m[sel]['mape'] * 100
     st.markdown(
         f"<div style='padding:8px 0'>"
@@ -201,9 +195,10 @@ t1, t2, t3 = st.tabs(["  PRAKIRAAN  ", "  PENJELASAN XAI  ", "  PERBANDINGAN AKT
 
 # ══════════════════════════════════════════════════════════════════════════════
 with t1:
+    fc = fcr[sel]
+
     # ── KPI per bulan ─────────────────────────────────────────────────────────
     st.markdown('<p class="sec">Ringkasan Prakiraan per Bulan</p>', unsafe_allow_html=True)
-
     fc_monthly = fc.copy()
     fc_monthly['bulan'] = fc_monthly['Tanggal Servis'].dt.to_period('M')
     monthly = fc_monthly.groupby('bulan').agg(
@@ -211,63 +206,61 @@ with t1:
         total_optimistic=('optimistic', 'sum'),
         total_pessimistic=('pessimistic', 'sum')
     ).reset_index()
-    monthly['bulan_str'] = monthly['bulan'].astype(str)
 
-    # Tampilkan 4 bulan pertama sebagai KPI
     cols_kpi = st.columns(min(len(monthly), 6))
     for i, (_, row) in enumerate(monthly.iterrows()):
         if i >= len(cols_kpi): break
         with cols_kpi[i]:
-            try:
-                label = pd.Period(row['bulan_str']).strftime('%b %Y')
-            except:
-                label = row['bulan_str']
-            st.metric(label, f"{row['total_forecast']:,.0f}", help=f"Optimistis: {row['total_optimistic']:,.0f} | Pesimistis: {row['total_pessimistic']:,.0f}")
+            try: label = pd.Period(str(row['bulan'])).strftime('%b %Y')
+            except: label = str(row['bulan'])
+            st.metric(label, f"{row['total_forecast']:,.0f}",
+                      help=f"Optimistis: {row['total_optimistic']:,.0f} | Pesimistis: {row['total_pessimistic']:,.0f}")
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
     # ── Filter rentang tanggal ────────────────────────────────────────────────
     st.markdown('<p class="sec">Filter Rentang Tampilan</p>', unsafe_allow_html=True)
-
     fc_min = fc['Tanggal Servis'].min().date()
     fc_max = fc['Tanggal Servis'].max().date()
 
+    if 'tgl_mulai' not in st.session_state: st.session_state.tgl_mulai = fc_min
+    if 'tgl_akhir' not in st.session_state: st.session_state.tgl_akhir = fc_max
+
     col_f1, col_f2, col_f3 = st.columns([2, 2, 3])
     with col_f1:
-        tgl_mulai = st.date_input("Dari Tanggal", value=fc_min, min_value=fc_min, max_value=fc_max)
+        tgl_mulai = st.date_input("Dari Tanggal", value=st.session_state.tgl_mulai,
+                                   min_value=fc_min, max_value=fc_max)
     with col_f2:
-        tgl_akhir = st.date_input("Sampai Tanggal", value=fc_max, min_value=fc_min, max_value=fc_max)
+        tgl_akhir = st.date_input("Sampai Tanggal", value=st.session_state.tgl_akhir,
+                                   min_value=fc_min, max_value=fc_max)
     with col_f3:
         st.markdown("<div style='padding-top:22px'>", unsafe_allow_html=True)
         qc1, qc2, qc3, qc4 = st.columns(4)
         with qc1:
             if st.button("1 Minggu", use_container_width=True):
-                tgl_mulai = fc_min
-                tgl_akhir = (pd.Timestamp(fc_min) + pd.Timedelta(weeks=1)).date()
+                st.session_state.tgl_mulai = fc_min
+                st.session_state.tgl_akhir = (pd.Timestamp(fc_min) + pd.Timedelta(weeks=1)).date()
                 st.rerun()
         with qc2:
             if st.button("2 Minggu", use_container_width=True):
-                tgl_mulai = fc_min
-                tgl_akhir = (pd.Timestamp(fc_min) + pd.Timedelta(weeks=2)).date()
+                st.session_state.tgl_mulai = fc_min
+                st.session_state.tgl_akhir = (pd.Timestamp(fc_min) + pd.Timedelta(weeks=2)).date()
                 st.rerun()
         with qc3:
             if st.button("1 Bulan", use_container_width=True):
-                tgl_mulai = fc_min
-                tgl_akhir = (pd.Timestamp(fc_min) + pd.Timedelta(weeks=4)).date()
+                st.session_state.tgl_mulai = fc_min
+                st.session_state.tgl_akhir = (pd.Timestamp(fc_min) + pd.Timedelta(weeks=4)).date()
                 st.rerun()
         with qc4:
             if st.button("Semua", use_container_width=True):
-                tgl_mulai = fc_min
-                tgl_akhir = fc_max
+                st.session_state.tgl_mulai = fc_min
+                st.session_state.tgl_akhir = fc_max
                 st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # Filter data berdasarkan tanggal
     mask_fc = (fc['Tanggal Servis'].dt.date >= tgl_mulai) & (fc['Tanggal Servis'].dt.date <= tgl_akhir)
     fc_filtered = fc[mask_fc]
-
-    # Hitung berapa minggu yang ditampilkan
-    n_minggu = len(fc_filtered)
+    n_minggu    = len(fc_filtered)
 
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
@@ -275,56 +268,42 @@ with t1:
     gc, sc = st.columns([3, 1])
 
     with gc:
-        st.markdown(f'<p class="sec">Grafik Prakiraan Mingguan ({n_minggu} Minggu · {tgl_mulai.strftime("%d %b %Y")} – {tgl_akhir.strftime("%d %b %Y")})</p>', unsafe_allow_html=True)
+        st.markdown(
+            f'<p class="sec">Grafik Prakiraan Mingguan ({n_minggu} Minggu · '
+            f'{tgl_mulai.strftime("%d %b %Y")} – {tgl_akhir.strftime("%d %b %Y")})</p>',
+            unsafe_allow_html=True)
 
-        # Data historis — ambil semua untuk konteks, tapi highlight sesuai filter
-        h = hdf[hdf['Kecamatan Bengkel'] == sel].copy()
-
-        # Lebar grafik dinamis berdasarkan jumlah minggu
-        # Minimal 400px, tiap minggu 40px, maksimal scroll
-        chart_width = max(600, n_minggu * 45)
-
-        fds = fc_filtered['Tanggal Servis'].astype(str)
-        fig = go.Figure()
-
-        # Historis 2025 (semua, sebagai konteks)
+        fds  = fc_filtered['Tanggal Servis'].astype(str)
         h_all = hdf[hdf['Kecamatan Bengkel'] == sel].copy()
+        fig  = go.Figure()
+
         fig.add_trace(go.Bar(
             x=h_all['Tanggal Servis'].astype(str), y=h_all['Jumlah Servis'],
             name='Historis', marker_color='#DAEAF8', marker_line_width=0, opacity=0.7))
 
-        # Rentang kepercayaan
         fig.add_trace(go.Scatter(
             x=pd.concat([fds, fds[::-1]]),
             y=pd.concat([fc_filtered['optimistic'], fc_filtered['pessimistic'][::-1]]),
             fill='toself', fillcolor='rgba(204,0,0,0.07)',
             line=dict(color='rgba(0,0,0,0)'), name='Rentang Kepercayaan'))
 
-        # Garis pesimistis dan optimistis
         fig.add_trace(go.Scatter(
             x=fds, y=fc_filtered['pessimistic'], mode='lines', name='Pesimistis −16%',
             line=dict(color='#CCC', dash='dash', width=1.2)))
         fig.add_trace(go.Scatter(
             x=fds, y=fc_filtered['optimistic'], mode='lines', name='Optimistis +18%',
             line=dict(color='#3B6D11', dash='dash', width=1.2)))
-
-        # Garis prakiraan utama
         fig.add_trace(go.Scatter(
             x=fds, y=fc_filtered['forecast'], mode='lines+markers', name='Prakiraan (XGBoost)',
-            line=dict(color=CM[sel], width=2.5),
-            marker=dict(size=5, color=CM[sel])))
+            line=dict(color=CM[sel], width=2.5), marker=dict(size=5, color=CM[sel])))
 
-        # Label nilai di tiap titik prakiraan (kalau tidak terlalu banyak)
         if n_minggu <= 12:
             fig.add_trace(go.Scatter(
-                x=fds, y=fc_filtered['forecast'],
-                mode='text',
+                x=fds, y=fc_filtered['forecast'], mode='text',
                 text=[f"{v:,.0f}" for v in fc_filtered['forecast']],
-                textposition='top center',
-                textfont=dict(size=8, color=CM[sel]),
+                textposition='top center', textfont=dict(size=8, color=CM[sel]),
                 showlegend=False))
 
-        # Garis Lebaran 2026
         lb = LEB.get(2026)
         if lb:
             lb_str = str(pd.Timestamp(lb).date())
@@ -334,29 +313,23 @@ with t1:
                 fig.add_annotation(x=lb_str, y=1.04, yref='paper', text='Lebaran 2026',
                                    showarrow=False, font=dict(size=8, color='#00AA00'), xanchor='center')
 
-        layout = chart_base(320)
-        layout['xaxis']['tickformat'] = '%d %b %Y'
-        layout['xaxis']['tickangle'] = -35
-        layout['yaxis']['title'] = 'Servis/Minggu'
-        layout['yaxis']['title_font'] = dict(size=9, color='#bbb')
-
-        # Aktifkan scroll horizontal
+        layout = chart_base(380)
+        layout['xaxis']['tickformat']  = '%d %b %Y'
+        layout['xaxis']['tickangle']   = -35
         layout['xaxis']['rangeslider'] = dict(visible=True, thickness=0.05, bgcolor='#f5f5f5')
-        layout['height'] = 380
-
+        layout['yaxis']['title']       = 'Servis/Minggu'
+        layout['yaxis']['title_font']  = dict(size=9, color='#bbb')
         fig.update_layout(**layout)
         st.plotly_chart(fig, use_container_width=True, config={
             'displayModeBar': True,
             'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'autoScale2d'],
-            'scrollZoom': True
-        })
+            'scrollZoom': True})
 
-        # Tabel detail mingguan
+        # Tabel detail per minggu
         st.markdown('<p class="sec" style="margin-top:8px">Detail per Minggu</p>', unsafe_allow_html=True)
         tbl = fc_filtered[['Tanggal Servis', 'forecast', 'optimistic', 'pessimistic']].copy()
         tbl['Tanggal Servis'] = tbl['Tanggal Servis'].dt.strftime('%d %b %Y')
         tbl.columns = ['Minggu', 'Prakiraan', 'Optimistis (+18%)', 'Pesimistis (−16%)']
-        tbl = tbl.reset_index(drop=True)
         st.dataframe(
             tbl.style.format({
                 'Prakiraan': '{:,.0f}',
@@ -368,18 +341,17 @@ with t1:
     with sc:
         st.markdown('<p class="sec">Semua District</p>', unsafe_allow_html=True)
         for kec, clr in zip(TOP5, COLS):
-            fk = fcr[kec]
+            fk     = fcr[kec]
             mask_k = (fk['Tanggal Servis'].dt.date >= tgl_mulai) & (fk['Tanggal Servis'].dt.date <= tgl_akhir)
-            fk_f = fk[mask_k]
+            fk_f   = fk[mask_k]
             avg_fc = fk_f['forecast'].mean() if len(fk_f) > 0 else 0
-            sum_fc = fk_f['forecast'].sum() if len(fk_f) > 0 else 0
-            mape_v = xgb_m[kec]['mape'] * 100
+            sum_fc = fk_f['forecast'].sum()  if len(fk_f) > 0 else 0
             st.markdown(f"""
             <div class="drow">
               <div class="ddot" style="background:{clr}"></div>
               <div style="flex:1">
                 <span class="dname">{dl(kec)}</span>
-                <span class="dmape">MAPE {mape_v:.1f}%</span>
+                <span class="dmape">MAPE {xgb_m[kec]['mape']*100:.1f}%</span>
               </div>
               <div style="text-align:right">
                 <div class="dval" style="color:{clr}">{avg_fc:,.0f}</div>
@@ -390,33 +362,35 @@ with t1:
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
         st.markdown('<p class="sec">Ringkasan Rentang</p>', unsafe_allow_html=True)
         total_all = sum(
-            fcr[kec][
-                (fcr[kec]['Tanggal Servis'].dt.date >= tgl_mulai) &
-                (fcr[kec]['Tanggal Servis'].dt.date <= tgl_akhir)
-            ]['forecast'].sum()
-            for kec in TOP5
-        )
+            fcr[kec][(fcr[kec]['Tanggal Servis'].dt.date >= tgl_mulai) &
+                     (fcr[kec]['Tanggal Servis'].dt.date <= tgl_akhir)]['forecast'].sum()
+            for kec in TOP5)
         st.markdown(f"""
-        <div style="background:#fff5f5;border-left:3px solid #CC0000;padding:10px 12px;border-radius:0 6px 6px 0;margin-top:4px">
-          <div style="font-size:0.6rem;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px">Total 5 District</div>
+        <div style="background:#fff5f5;border-left:3px solid #CC0000;padding:10px 12px;
+                    border-radius:0 6px 6px 0;margin-top:4px">
+          <div style="font-size:0.6rem;color:#888;font-weight:700;text-transform:uppercase;
+                      letter-spacing:1px">Total 5 District</div>
           <div style="font-size:1.4rem;font-weight:700;color:#CC0000">{total_all:,.0f}</div>
-          <div style="font-size:0.6rem;color:#bbb">{n_minggu} minggu · {tgl_mulai.strftime('%d %b')} – {tgl_akhir.strftime('%d %b %Y')}</div>
+          <div style="font-size:0.6rem;color:#bbb">
+            {n_minggu} minggu · {tgl_mulai.strftime('%d %b')} – {tgl_akhir.strftime('%d %b %Y')}
+          </div>
         </div>""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
 with t2:
-    # Pilih minggu untuk XAI
-    wo  = [f"Minggu {i+1} — {d.strftime('%d %b %Y')}" for i, d in enumerate(fc['Tanggal Servis'])]
-    col_xai1, col_xai2 = st.columns([2, 5])
+    fc = fcr[sel]
+    wo = [f"Minggu {i+1} — {d.strftime('%d %b %Y')}" for i, d in enumerate(fc['Tanggal Servis'])]
+    col_xai1, _ = st.columns([2, 5])
     with col_xai1:
-        sw  = st.selectbox("Pilih Minggu", wo, key="xai_week")
-        wi  = wo.index(sw)
+        sw = st.selectbox("Pilih Minggu", wo, key="xai_week")
+        wi = wo.index(sw)
 
     xai = fc.iloc[wi]
     sr  = shp[sel]
     ii  = min(wi, len(sr['shap_values']) - 1)
     sv, xv = sr['shap_values'][ii], sr['X_test'][ii]
-    sdf = pd.DataFrame({'feature': sr['feat_cols'], 'shap': sv, 'value': xv})
+    feat_cols = sr.get('feat_cols', cfg['fiturbaru'])
+    sdf = pd.DataFrame({'feature': feat_cols, 'shap': sv, 'value': xv})
     sdf['abs'] = sdf['shap'].abs()
     top5f = sdf.sort_values('abs', ascending=False).head(5)
     mx    = top5f['abs'].max()
@@ -429,7 +403,8 @@ with t2:
             f"<p style='font-size:0.8rem;font-weight:700;margin:0 0 2px 0'>"
             f"Prakiraan: <span style='color:#CC0000'>{xai['forecast']:,.0f}</span> servis/minggu</p>"
             f"<p style='font-size:0.65rem;color:#bbb;margin:0 0 12px 0'>"
-            f"{xai['Tanggal Servis'].strftime('%d %b %Y')} · {dl(sel)}</p>", unsafe_allow_html=True)
+            f"{xai['Tanggal Servis'].strftime('%d %b %Y')} · {dl(sel)}</p>",
+            unsafe_allow_html=True)
 
         for _, r in top5f.iterrows():
             pos  = r['shap'] > 0
@@ -440,9 +415,13 @@ with t2:
             <div class="frow">
               <div class="fpill" style="background:{bg};color:{clr}">{"▲" if pos else "▼"}</div>
               <div style="flex:1;min-width:0">
-                <div><span class="fname">{r['feature']}</span><span class="fval">= {r['value']:.1f}</span></div>
+                <div><span class="fname">{r['feature']}</span>
+                     <span class="fval">= {r['value']:.1f}</span></div>
                 <div class="fdesc">{fd(r['feature'])}</div>
-                <div class="fbar"><div style="height:3px;border-radius:2px;width:{fill}%;background:{clr};opacity:0.6"></div></div>
+                <div class="fbar">
+                  <div style="height:3px;border-radius:2px;width:{fill}%;
+                              background:{clr};opacity:0.6"></div>
+                </div>
               </div>
               <span class="fimp" style="color:{clr}">{r['shap']:+.1f}</span>
             </div>""", unsafe_allow_html=True)
@@ -453,7 +432,7 @@ with t2:
     with col_b:
         st.markdown(f'<p class="sec">Kepentingan Fitur — {dl(sel)}</p>', unsafe_allow_html=True)
         ms  = np.abs(sr['shap_values']).mean(axis=0)
-        df2 = pd.DataFrame({'F': [fl(f) for f in sr['feat_cols']], 'V': ms}).sort_values('V')
+        df2 = pd.DataFrame({'F': [fl(f) for f in feat_cols], 'V': ms}).sort_values('V')
         f2  = go.Figure(go.Bar(x=df2['V'], y=df2['F'], orientation='h',
                                marker_color='#CC0000', opacity=0.75, marker_line_width=0))
         l2  = chart_base(360)
@@ -470,14 +449,14 @@ with t2:
         st.markdown('<p class="sec">SHAP Semua District</p>', unsafe_allow_html=True)
         f3 = go.Figure()
         for kec, clr in zip(TOP5, COLS):
-            sr2 = shp[kec]
-            ms2 = np.abs(sr2['shap_values']).mean(axis=0)
-            f3.add_trace(go.Bar(name=dl(kec),
-                                x=[fl(f) for f in sr2['feat_cols']],
+            sr2  = shp[kec]
+            fc2  = sr2.get('feat_cols', cfg['fiturbaru'])
+            ms2  = np.abs(sr2['shap_values']).mean(axis=0)
+            f3.add_trace(go.Bar(name=dl(kec), x=[fl(f) for f in fc2],
                                 y=ms2, marker_color=clr, marker_line_width=0))
         l3 = chart_base(210)
-        l3['barmode'] = 'group'
-        l3['margin']  = dict(l=8, r=8, t=8, b=130)
+        l3['barmode']  = 'group'
+        l3['margin']   = dict(l=8, r=8, t=8, b=130)
         l3['xaxis']['tickangle'] = -35
         l3['xaxis']['showgrid']  = False
         l3['xaxis']['tickfont']  = dict(size=7.5, color='#888')
@@ -491,199 +470,224 @@ with t2:
 
 # ══════════════════════════════════════════════════════════════════════════════
 with t3:
-    st.markdown('<p class="sec">Upload Data Aktual</p>', unsafe_allow_html=True)
-    st.markdown(
-        "<p style='font-size:0.72rem;color:#888;margin:0 0 6px 0'>"
-        "Upload file CSV dengan kolom: <code>Kecamatan</code>, <code>Tanggal Servis</code>, <code>Permintaan Servis</code></p>",
-        unsafe_allow_html=True)
+    # ── Pilih sumber data ─────────────────────────────────────────────────────
+    st.markdown('<p class="sec">Sumber Data Aktual</p>', unsafe_allow_html=True)
 
-    uploaded = st.file_uploader("Upload CSV", type="csv", label_visibility="hidden")
+    sumber = st.radio(
+        "Pilih sumber data aktual",
+        ["Validasi 2026 (Jan–Mar, bawaan)", "Upload data baru"],
+        horizontal=True, label_visibility="collapsed")
 
-    def proses_aktual(file_obj):
-        try:
-            df = pd.read_csv(file_obj)
-            # Validasi kolom
-            required = ['Kecamatan', 'Tanggal Servis', 'Permintaan Servis']
-            missing  = [c for c in required if c not in df.columns]
-            if missing:
-                st.error(f"Kolom tidak ditemukan: {missing}")
-                return None, None
-            df['Tanggal Servis']    = pd.to_datetime(df['Tanggal Servis'])
-            df['Permintaan Servis'] = pd.to_numeric(df['Permintaan Servis'], errors='coerce')
-            df = df.dropna(subset=['Permintaan Servis'])
+    def render_perbandingan(df_val_metrics, merged_dict, label_periode):
+        """Render grafik dan tabel perbandingan."""
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
 
-            # Hitung metrik per kecamatan
-            rows = []
-            for kec in TOP5:
-                act = df[df['Kecamatan'] == kec][['Tanggal Servis', 'Permintaan Servis']].copy()
-                if act.empty:
-                    continue
-                act = act.rename(columns={'Tanggal Servis': 'ds', 'Permintaan Servis': 'y_actual'})
-                merged = pd.merge(
-                    fcr[kec][['Tanggal Servis', 'forecast']].rename(columns={'Tanggal Servis': 'ds'}),
-                    act, on='ds', how='inner')
-                merged = merged[merged['y_actual'] > 0]
-                if merged.empty:
-                    continue
-                fc_v = merged['forecast'].values
-                ac_v = merged['y_actual'].values
-                rows.append({
-                    'Kecamatan': kec,
-                    'District':  dl(kec),
-                    'MAPE (%)':  round(np.mean(np.abs(fc_v - ac_v) / ac_v) * 100, 1),
-                    'MAE':       int(np.mean(np.abs(fc_v - ac_v))),
-                    'RMSE':      int(np.sqrt(np.mean((fc_v - ac_v) ** 2))),
-                    'Bias':      int(np.mean(fc_v - ac_v)),
-                    'Minggu':    len(merged),
-                    '_merged':   merged,
-                })
-            return df, rows
-        except Exception as e:
-            st.error(f"Gagal membaca file: {e}")
-            return None, None
+        # KPI strip
+        best  = df_val_metrics.loc[df_val_metrics['MAPE (%)'].idxmin()]
+        worst = df_val_metrics.loc[df_val_metrics['MAPE (%)'].idxmax()]
+        avg_m = df_val_metrics['MAPE (%)'].mean()
 
-    if uploaded is not None:
-        df_actual, hasil = proses_aktual(uploaded)
+        k1, k2, k3, k4 = st.columns(4)
+        with k1: st.metric("Rata-rata MAPE", f"{avg_m:.1f}%")
+        with k2: st.metric("Terbaik",  dl(best['Kecamatan']),  help=f"MAPE {best['MAPE (%)']:.1f}%")
+        with k3: st.metric("Terlemah", dl(worst['Kecamatan']), help=f"MAPE {worst['MAPE (%)']:.1f}%")
+        with k4: st.metric("Periode", label_periode)
 
-        if hasil:
-            st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-            # KPI strip
-            mapes = [r['MAPE (%)'] for r in hasil]
-            best  = hasil[np.argmin(mapes)]
-            worst = hasil[np.argmax(mapes)]
-            tgl_min = df_actual['Tanggal Servis'].min().strftime('%d %b %Y')
-            tgl_max = df_actual['Tanggal Servis'].max().strftime('%d %b %Y')
+        lc, rc = st.columns([2.4, 1])
 
-            k1, k2, k3, k4 = st.columns(4)
-            with k1: st.metric("Rata-rata MAPE", f"{np.mean(mapes):.1f}%")
-            with k2: st.metric("Terbaik",  dl(best['Kecamatan']),  help=f"MAPE {best['MAPE (%)']:.1f}%")
-            with k3: st.metric("Terlemah", dl(worst['Kecamatan']), help=f"MAPE {worst['MAPE (%)']:.1f}%")
-            with k4: st.metric("Periode",  f"{tgl_min} – {tgl_max}")
+        with lc:
+            sel_v = st.selectbox("District untuk perbandingan", TOP5,
+                                  format_func=dl, key="val_sel")
+            merged = merged_dict.get(sel_v)
 
-            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+            if merged is not None and not merged.empty:
+                st.markdown(f'<p class="sec">Prakiraan vs Aktual — {dl(sel_v)}</p>',
+                            unsafe_allow_html=True)
 
-            lc, rc = st.columns([2.4, 1])
+                clr = CM[sel_v]
+                fck = fcr[sel_v]
+                hk  = hdf[hdf['Kecamatan Bengkel'] == sel_v].tail(26)
 
-            with lc:
-                # Pilih district untuk grafik perbandingan
-                sel_v = st.selectbox("District untuk perbandingan", TOP5, format_func=dl, key="val_sel")
-                row_v = next((r for r in hasil if r['Kecamatan'] == sel_v), None)
+                # Ambil nama kolom aktual yang ada
+                aktual_col = 'aktual' if 'aktual' in merged.columns else 'Permintaan Servis'
 
-                if row_v:
-                    st.markdown(f'<p class="sec">Prakiraan vs Aktual — {dl(sel_v)}</p>', unsafe_allow_html=True)
+                fv = go.Figure()
+                fv.add_trace(go.Bar(
+                    x=hk['Tanggal Servis'].astype(str), y=hk['Jumlah Servis'],
+                    name='Historis 2025', marker_color='#DAEAF8',
+                    marker_line_width=0, opacity=0.75))
+                fv.add_trace(go.Scatter(
+                    x=pd.concat([fck['Tanggal Servis'].astype(str),
+                                 fck['Tanggal Servis'].astype(str)[::-1]]),
+                    y=pd.concat([fck['optimistic'], fck['pessimistic'][::-1]]),
+                    fill='toself', fillcolor='rgba(204,0,0,0.06)',
+                    line=dict(color='rgba(0,0,0,0)'), name='Rentang Kepercayaan'))
+                fv.add_trace(go.Scatter(
+                    x=fck['Tanggal Servis'].astype(str), y=fck['forecast'],
+                    mode='lines', name='Prakiraan (XGBoost)',
+                    line=dict(color=clr, width=2, dash='dash'), opacity=0.6))
+                fv.add_trace(go.Scatter(
+                    x=merged['Tanggal Servis'].astype(str), y=merged[aktual_col],
+                    mode='lines+markers', name='Aktual',
+                    line=dict(color='#CC0000', width=2.2),
+                    marker=dict(size=5, color='#CC0000')))
+                fv.add_trace(go.Scatter(
+                    x=merged['Tanggal Servis'].astype(str), y=merged['forecast'],
+                    mode='lines+markers', name='Prakiraan (periode aktual)',
+                    line=dict(color=clr, width=2),
+                    marker=dict(size=4, symbol='square', color=clr)))
 
-                    merged = row_v['_merged']
-                    clr    = CM[sel_v]
-                    fck    = fcr[sel_v]
-                    hk     = hdf[hdf['Kecamatan Bengkel'] == sel_v].tail(26)
+                lb = LEB.get(2026)
+                if lb:
+                    fv.add_shape(type='line', x0=str(lb), x1=str(lb), y0=0, y1=1, yref='paper',
+                                 line=dict(color='#00AA00', width=1, dash='dash'))
+                    fv.add_annotation(x=str(lb), y=1.04, yref='paper', text='Lebaran 2026',
+                                      showarrow=False, font=dict(size=8, color='#00AA00'),
+                                      xanchor='center')
 
-                    fv = go.Figure()
-                    fv.add_trace(go.Bar(
-                        x=hk['Tanggal Servis'].astype(str), y=hk['Jumlah Servis'],
-                        name='Historis 2025', marker_color='#DAEAF8',
-                        marker_line_width=0, opacity=0.75))
-                    fv.add_trace(go.Scatter(
-                        x=pd.concat([fck['Tanggal Servis'].astype(str),
-                                     fck['Tanggal Servis'].astype(str)[::-1]]),
-                        y=pd.concat([fck['optimistic'], fck['pessimistic'][::-1]]),
-                        fill='toself', fillcolor='rgba(204,0,0,0.06)',
-                        line=dict(color='rgba(0,0,0,0)'), name='Rentang Kepercayaan'))
-                    fv.add_trace(go.Scatter(
-                        x=fck['Tanggal Servis'].astype(str), y=fck['forecast'],
-                        mode='lines', name='Prakiraan (XGBoost)',
-                        line=dict(color=clr, width=2)))
-                    fv.add_trace(go.Scatter(
-                        x=merged['ds'].astype(str), y=merged['y_actual'],
-                        mode='lines+markers', name='Aktual',
-                        line=dict(color='#CC0000', width=2.2),
-                        marker=dict(size=5, color='#CC0000')))
+                lv = chart_base(320)
+                lv['xaxis']['tickformat']  = '%d %b %Y'
+                lv['xaxis']['rangeslider'] = dict(visible=True, thickness=0.05, bgcolor='#f5f5f5')
+                lv['yaxis']['title']       = 'Servis / Minggu'
+                lv['yaxis']['title_font']  = dict(size=9, color='#bbb')
+                lv['height'] = 380
+                fv.update_layout(**lv)
+                st.plotly_chart(fv, use_container_width=True, config={
+                    'displayModeBar': True, 'scrollZoom': True,
+                    'modeBarButtonsToRemove': ['select2d', 'lasso2d']})
 
-                    lb = LEB.get(2026)
-                    if lb:
-                        fv.add_shape(type='line', x0=str(lb), x1=str(lb), y0=0, y1=1, yref='paper',
-                                     line=dict(color='#00AA00', width=1, dash='dash'))
-                        fv.add_annotation(x=str(lb), y=1.04, yref='paper', text='Lebaran 2026',
-                                          showarrow=False, font=dict(size=8, color='#00AA00'), xanchor='center')
-
-                    lv = chart_base(300)
-                    lv['xaxis']['tickformat']  = '%b %Y'
-                    lv['xaxis']['rangeslider'] = dict(visible=True, thickness=0.05, bgcolor='#f5f5f5')
-                    lv['yaxis']['title']       = 'Servis / Minggu'
-                    lv['yaxis']['title_font']  = dict(size=9, color='#bbb')
-                    lv['height'] = 360
-                    fv.update_layout(**lv)
-                    st.plotly_chart(fv, use_container_width=True, config={
-                        'displayModeBar': True, 'scrollZoom': True,
-                        'modeBarButtonsToRemove': ['select2d', 'lasso2d']})
-
-                    # Metrik detail
+                # Metrik district terpilih
+                row_v = df_val_metrics[df_val_metrics['Kecamatan'] == sel_v]
+                if not row_v.empty:
+                    row_v = row_v.iloc[0]
                     m1, m2, m3, m4 = st.columns(4)
                     with m1: st.metric("MAPE",  f"{row_v['MAPE (%)']:.1f}%")
                     with m2: st.metric("RMSE",  f"{row_v['RMSE']:,}")
                     with m3: st.metric("MAE",   f"{row_v['MAE']:,}")
-                    with m4: st.metric("Bias",  f"{row_v['Bias']:+,}", help="+ = model terlalu tinggi · − = model terlalu rendah")
+                    with m4: st.metric("Bias",  f"{row_v['Bias']:+,}",
+                                       help="+ = forecast terlalu tinggi · − = forecast terlalu rendah")
 
-                    # Tabel detail per minggu
-                    st.markdown('<p class="sec" style="margin-top:8px">Detail per Minggu</p>', unsafe_allow_html=True)
-                    tbl_v = merged[['ds', 'forecast', 'y_actual']].copy()
-                    tbl_v['selisih']  = tbl_v['forecast'] - tbl_v['y_actual']
-                    tbl_v['mape_w']   = np.abs(tbl_v['selisih'] / tbl_v['y_actual']) * 100
-                    tbl_v['ds']       = tbl_v['ds'].dt.strftime('%d %b %Y')
-                    tbl_v.columns     = ['Minggu', 'Prakiraan', 'Aktual', 'Selisih', 'MAPE (%)']
-                    st.dataframe(
-                        tbl_v.style.format({
-                            'Prakiraan': '{:,.0f}', 'Aktual': '{:,.0f}',
-                            'Selisih': '{:+,.0f}', 'MAPE (%)': '{:.1f}%'
-                        }).background_gradient(subset=['MAPE (%)'], cmap='RdYlGn_r'),
-                        use_container_width=True, hide_index=True, height=200)
-
-            with rc:
-                st.markdown('<p class="sec">Metrik per District</p>', unsafe_allow_html=True)
-                tbl_m = pd.DataFrame([{
-                    'District':  dl(r['Kecamatan']),
-                    'MAPE (%)':  r['MAPE (%)'],
-                    'RMSE':      r['RMSE'],
-                    'MAE':       r['MAE'],
-                    'Bias':      r['Bias'],
-                    'Minggu':    r['Minggu'],
-                } for r in hasil]).sort_values('MAPE (%)')
+                # Tabel detail per minggu
+                st.markdown('<p class="sec" style="margin-top:8px">Detail per Minggu</p>',
+                            unsafe_allow_html=True)
+                tbl_v = merged[['Tanggal Servis', 'forecast', aktual_col]].copy()
+                tbl_v['selisih'] = tbl_v['forecast'] - tbl_v[aktual_col]
+                tbl_v['mape_w']  = np.abs(tbl_v['selisih'] / tbl_v[aktual_col]) * 100
+                tbl_v['Tanggal Servis'] = tbl_v['Tanggal Servis'].dt.strftime('%d %b %Y')
+                tbl_v.columns = ['Minggu', 'Prakiraan', 'Aktual', 'Selisih', 'MAPE (%)']
                 st.dataframe(
-                    tbl_m.style
-                        .highlight_min(subset=['MAPE (%)'], color='#d4edda')
-                        .highlight_max(subset=['MAPE (%)'], color='#f8d7da')
-                        .format({'MAPE (%)': '{:.1f}%', 'RMSE': '{:,}',
-                                 'MAE': '{:,}', 'Bias': '{:+,}'}),
-                    use_container_width=True, hide_index=True, height=240)
+                    tbl_v.style.format({
+                        'Prakiraan': '{:,.0f}', 'Aktual': '{:,.0f}',
+                        'Selisih': '{:+,.0f}', 'MAPE (%)': '{:.1f}%'
+                    }).background_gradient(subset=['MAPE (%)'], cmap='RdYlGn_r'),
+                    use_container_width=True, hide_index=True, height=200)
 
-                st.markdown('<p class="sec" style="margin-top:12px">Interpretasi</p>', unsafe_allow_html=True)
-                for clr2, bg, title, desc in [
-                    ("#16a34a", "#f0fdf4", "✅ Performa Baik",     "MAPE di bawah 12% — prediksi akurat."),
-                    ("#d97706", "#fffbeb", "⚠️ Perlu Perhatian", "MAPE 12–20% — perlu evaluasi lebih lanjut."),
-                    ("#CC0000", "#fff5f5", "🔴 Distribusi Shift",  "Pola demand berbeda dari data training."),
-                ]:
-                    st.markdown(f"""
-                    <div class="icard" style="background:{bg};border-color:{clr2}">
-                      <p class="ititle" style="color:{clr2}">{title}</p>
-                      <p class="ibody">{desc}</p>
-                    </div>""", unsafe_allow_html=True)
+        with rc:
+            st.markdown('<p class="sec">Metrik per District</p>', unsafe_allow_html=True)
+            disp_cols = ['District', 'MAPE (%)', 'RMSE', 'MAE', 'Bias']
+            disp_cols = [c for c in disp_cols if c in df_val_metrics.columns]
+            disp = df_val_metrics[disp_cols].sort_values('MAPE (%)')
+            st.dataframe(
+                disp.style
+                    .highlight_min(subset=['MAPE (%)'], color='#d4edda')
+                    .highlight_max(subset=['MAPE (%)'], color='#f8d7da')
+                    .format({'MAPE (%)': '{:.1f}%', 'RMSE': '{:,}',
+                             'MAE': '{:,}', 'Bias': '{:+,}'}),
+                use_container_width=True, hide_index=True, height=240)
+
+            st.markdown('<p class="sec" style="margin-top:12px">Interpretasi</p>',
+                        unsafe_allow_html=True)
+            for clr2, bg, title, desc in [
+                ("#16a34a", "#f0fdf4", "✅ Performa Baik",    "MAPE di bawah 12% — prediksi akurat."),
+                ("#d97706", "#fffbeb", "⚠️ Perlu Perhatian", "MAPE 12–20% — perlu evaluasi lebih lanjut."),
+                ("#CC0000", "#fff5f5", "🔴 Distribusi Shift", "Pola demand berbeda dari data training."),
+            ]:
+                st.markdown(f"""
+                <div class="icard" style="background:{bg};border-color:{clr2}">
+                  <p class="ititle" style="color:{clr2}">{title}</p>
+                  <p class="ibody">{desc}</p>
+                </div>""", unsafe_allow_html=True)
+
+    # ── Tampilkan berdasarkan pilihan sumber ──────────────────────────────────
+    if sumber == "Validasi 2026 (Jan–Mar, bawaan)":
+        if dv26 is not None and vm26:
+            render_perbandingan(dv26, vm26, "Jan–Mar 2026")
+        else:
+            st.warning("File validasi_2026.csv atau validation_merged.pkl tidak ditemukan di streamlit_assets.")
+
     else:
-        # Tampilan kosong sebelum upload
-        st.markdown("""
-        <div style="background:#fff;border:2px dashed #e8e8e8;border-radius:8px;
-                    padding:40px;text-align:center;margin-top:16px">
-          <div style="font-size:2rem;margin-bottom:8px">📂</div>
-          <div style="font-size:0.9rem;font-weight:600;color:#444;margin-bottom:4px">
-            Upload file CSV untuk mulai perbandingan
-          </div>
-          <div style="font-size:0.72rem;color:#bbb">
-            Kolom yang dibutuhkan: <code>Kecamatan</code>, <code>Tanggal Servis</code>, <code>Permintaan Servis</code>
-          </div>
-        </div>""", unsafe_allow_html=True)
+        st.markdown(
+            "<p style='font-size:0.72rem;color:#888;margin:0 0 6px 0'>"
+            "Upload file CSV dengan kolom: <code>Kecamatan</code>, "
+            "<code>Tanggal Servis</code>, <code>Permintaan Servis</code></p>",
+            unsafe_allow_html=True)
 
-        with st.expander("💡 Cara export data aktual dari Google Colab"):
-            st.code("""# Export data aktual dari notebook
-rows = []
+        uploaded = st.file_uploader("Upload CSV", type="csv", label_visibility="hidden")
+
+        if uploaded is not None:
+            try:
+                df_up = pd.read_csv(uploaded)
+                required = ['Kecamatan', 'Tanggal Servis', 'Permintaan Servis']
+                missing  = [c for c in required if c not in df_up.columns]
+                if missing:
+                    st.error(f"Kolom tidak ditemukan: {missing}")
+                else:
+                    df_up['Tanggal Servis']    = pd.to_datetime(df_up['Tanggal Servis'])
+                    df_up['Permintaan Servis'] = pd.to_numeric(df_up['Permintaan Servis'], errors='coerce')
+                    df_up = df_up.dropna(subset=['Permintaan Servis'])
+
+                    rows_up  = []
+                    merged_up = {}
+                    for kec in TOP5:
+                        act = df_up[df_up['Kecamatan'] == kec][['Tanggal Servis', 'Permintaan Servis']].copy()
+                        if act.empty: continue
+                        merged = pd.merge(
+                            fcr[kec][['Tanggal Servis', 'forecast']],
+                            act, on='Tanggal Servis', how='inner')
+                        merged = merged[merged['Permintaan Servis'] > 0]
+                        if merged.empty: continue
+
+                        fc_v = merged['forecast'].values
+                        ac_v = merged['Permintaan Servis'].values
+                        rows_up.append({
+                            'Kecamatan': kec, 'District': dl(kec),
+                            'MAPE (%)':  round(np.mean(np.abs(fc_v - ac_v) / ac_v) * 100, 1),
+                            'RMSE':      int(np.sqrt(np.mean((fc_v - ac_v) ** 2))),
+                            'MAE':       int(np.mean(np.abs(fc_v - ac_v))),
+                            'Bias':      int(np.mean(fc_v - ac_v)),
+                            'Minggu':    len(merged),
+                        })
+                        merged_up[kec] = merged.rename(columns={'Permintaan Servis': 'aktual'})
+
+                    if rows_up:
+                        tgl_min = df_up['Tanggal Servis'].min().strftime('%d %b %Y')
+                        tgl_max = df_up['Tanggal Servis'].max().strftime('%d %b %Y')
+                        render_perbandingan(
+                            pd.DataFrame(rows_up), merged_up,
+                            f"{tgl_min} – {tgl_max}")
+                    else:
+                        st.warning("Tidak ada data yang cocok dengan forecast. Pastikan nama kecamatan sesuai (DISTRICT_A dst).")
+
+            except Exception as e:
+                st.error(f"Gagal membaca file: {e}")
+        else:
+            st.markdown("""
+            <div style="background:#fff;border:2px dashed #e8e8e8;border-radius:8px;
+                        padding:40px;text-align:center;margin-top:16px">
+              <div style="font-size:2rem;margin-bottom:8px">📂</div>
+              <div style="font-size:0.9rem;font-weight:600;color:#444;margin-bottom:4px">
+                Upload file CSV untuk mulai perbandingan
+              </div>
+              <div style="font-size:0.72rem;color:#bbb">
+                Kolom: <code>Kecamatan</code>, <code>Tanggal Servis</code>,
+                <code>Permintaan Servis</code>
+              </div>
+            </div>""", unsafe_allow_html=True)
+
+            with st.expander("💡 Cara export data aktual dari Google Colab"):
+                st.code("""rows = []
 for kec in kecamatan:
     sub = dfs[dfs['Kecamatan Bengkel'] == kec][['Tanggal Servis', 'Jumlah Servis']].copy()
     sub['Kecamatan'] = kec
