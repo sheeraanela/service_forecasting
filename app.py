@@ -624,7 +624,7 @@ with t3:
             "<code>Tanggal Servis</code>, <code>Permintaan Servis</code></p>",
             unsafe_allow_html=True)
 
-        uploaded = st.file_uploader("Upload CSV", type="csv", label_visibility="hidden")
+        uploaded = st.file_uploader("", type="csv", label_visibility="collapsed")
 
         if uploaded is not None:
             try:
