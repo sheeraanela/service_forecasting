@@ -615,7 +615,7 @@ with t3:
                         padding:40px;text-align:center;margin-top:16px">
               <div style="font-size:2rem;margin-bottom:8px">📂</div>
               <div style="font-size:0.9rem;font-weight:600;color:#444;margin-bottom:4px">
-                Upload file CSV untuk mulai perbandingan
+                
               </div>
               <div style="font-size:0.72rem;color:#bbb">
                 Kolom: <code>Kecamatan</code>, <code>Tanggal Servis</code>,
@@ -623,7 +623,7 @@ with t3:
               </div>
             </div>""", unsafe_allow_html=True)
 
-            with st.expander("💡 Cara export data aktual dari Google Colab"):
+            with st.expander(""):
                 st.code("""rows = []
 for kec in kecamatan:
     sub = dfs[dfs['Kecamatan Bengkel'] == kec][['Tanggal Servis', 'Jumlah Servis']].copy()
