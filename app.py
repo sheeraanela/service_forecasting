@@ -565,12 +565,12 @@ with t3:
             unsafe_allow_html=True
         )
 
-        # Styling uploader tanpa menyembunyikan elemen internal Streamlit.
-        # Jangan pakai selector stFileUploaderDropzone > div:first-child karena itu membuat tombol/teks upload overlapping.
+        # Styling uploader: versi aman untuk mencegah teks tombol dobel/overlap.
+        # Catatan: jangan sembunyikan div pertama dropzone dan jangan buat dropzone palsu.
         st.markdown("""
         <style>
         div[data-testid="stFileUploader"] {
-            max-width: 680px !important;
+            max-width: 720px !important;
             margin-top: 8px !important;
             margin-bottom: 18px !important;
         }
@@ -583,56 +583,46 @@ with t3:
         }
 
         div[data-testid="stFileUploader"] section {
-            min-height: 116px !important;
+            min-height: 110px !important;
             border: 1.5px dashed #d9d9d9 !important;
             border-radius: 10px !important;
             background-color: #ffffff !important;
-            padding: 18px !important;
+            padding: 18px 22px !important;
             overflow: hidden !important;
         }
 
-        div[data-testid="stFileUploader"] section > div {
-            gap: 0.5rem !important;
+        /* Jangan pakai pseudo text tambahan yang bisa ikut menumpuk di beberapa browser.
+           Solusi paling stabil: besarkan tombol dan biarkan teks bawaan Streamlit tampil sekali. */
+        div[data-testid="stFileUploader"] button {
+            min-width: 170px !important;
+            width: 170px !important;
+            height: 44px !important;
+            border-radius: 8px !important;
+            padding: 0 14px !important;
+            overflow: hidden !important;
+            white-space: nowrap !important;
+            text-align: center !important;
+            font-size: 0.82rem !important;
+            line-height: 1 !important;
         }
 
-        /* Paksa tombol uploader memakai satu teks saja.
-           Di beberapa versi Streamlit/browser, teks tombol bisa dobel/menumpuk. */
-        div[data-testid="stFileUploaderDropzone"] button {
-            position: relative !important;
-            min-width: 150px !important;
-            height: 42px !important;
-            border-radius: 8px !important;
-            padding: 0 16px !important;
+        div[data-testid="stFileUploader"] button p,
+        div[data-testid="stFileUploader"] button span,
+        div[data-testid="stFileUploader"] button div {
             white-space: nowrap !important;
             overflow: hidden !important;
-            color: transparent !important;
-            font-size: 0 !important;
-        }
-
-        div[data-testid="stFileUploaderDropzone"] button * {
-            visibility: hidden !important;
-            color: transparent !important;
-            font-size: 0 !important;
-            line-height: 0 !important;
-        }
-
-        div[data-testid="stFileUploaderDropzone"] button::after {
-            content: "Pilih CSV";
-            visibility: visible !important;
-            position: absolute !important;
-            top: 50% !important;
-            left: 50% !important;
-            transform: translate(-50%, -50%) !important;
-            color: #111 !important;
+            text-overflow: clip !important;
             font-size: 0.82rem !important;
-            font-weight: 500 !important;
             line-height: 1 !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
 
         div[data-testid="stFileUploader"] small {
             color: #777 !important;
             font-size: 0.7rem !important;
-            margin-left: 8px !important;
+            margin-left: 10px !important;
+            white-space: nowrap !important;
         }
 
         div[data-testid="stFileUploader"] [data-testid="stFileUploaderFile"] {
