@@ -554,93 +554,56 @@ with t3:
     else:
         st.markdown(
             """
-            <div style="font-size:0.78rem;color:#666;margin:0 0 10px 0;line-height:1.55">
-                Upload file CSV dengan minimal kolom:
+            <div style="font-size:0.78rem;color:#666;margin:0 0 10px 0">
+                Upload file CSV data aktual. Kolom yang diterima:
                 <code>Kecamatan</code>, <code>Tanggal Servis</code>, dan
                 <code>Permintaan Servis</code>.<br>
-                Nama alternatif seperti <code>Kecamatan Bengkel</code>,
-                <code>Jumlah Servis</code>, <code>Tanggal</code>, atau <code>Aktual</code> juga diterima.
+                Nama kolom alternatif seperti <code>Kecamatan Bengkel</code>,
+                <code>Jumlah Servis</code>, <code>Tanggal</code>, atau <code>Aktual</code> juga bisa.
             </div>
             """,
             unsafe_allow_html=True
         )
 
-        # Styling uploader: versi aman untuk mencegah teks tombol dobel/overlap.
-        # Catatan: jangan sembunyikan div pertama dropzone dan jangan buat dropzone palsu.
-        st.markdown("""
-        <style>
-        div[data-testid="stFileUploader"] {
-            max-width: 720px !important;
-            margin-top: 8px !important;
-            margin-bottom: 18px !important;
-        }
-
-        div[data-testid="stFileUploader"] label {
-            font-size: 0.78rem !important;
-            font-weight: 600 !important;
-            color: #444 !important;
-            margin-bottom: 8px !important;
-        }
-
-        div[data-testid="stFileUploader"] section {
-            min-height: 110px !important;
-            border: 1.5px dashed #d9d9d9 !important;
-            border-radius: 10px !important;
-            background-color: #ffffff !important;
-            padding: 18px 22px !important;
-            overflow: hidden !important;
-        }
-
-        /* Jangan pakai pseudo text tambahan yang bisa ikut menumpuk di beberapa browser.
-           Solusi paling stabil: besarkan tombol dan biarkan teks bawaan Streamlit tampil sekali. */
-        div[data-testid="stFileUploader"] button {
-            min-width: 170px !important;
-            width: 170px !important;
-            height: 44px !important;
-            border-radius: 8px !important;
-            padding: 0 14px !important;
-            overflow: hidden !important;
-            white-space: nowrap !important;
-            text-align: center !important;
-            font-size: 0.82rem !important;
-            line-height: 1 !important;
-        }
-
-        div[data-testid="stFileUploader"] button p,
-        div[data-testid="stFileUploader"] button span,
-        div[data-testid="stFileUploader"] button div {
-            white-space: nowrap !important;
-            overflow: hidden !important;
-            text-overflow: clip !important;
-            font-size: 0.82rem !important;
-            line-height: 1 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-
-        div[data-testid="stFileUploader"] small {
-            color: #777 !important;
-            font-size: 0.7rem !important;
-            margin-left: 10px !important;
-            white-space: nowrap !important;
-        }
-
-        div[data-testid="stFileUploader"] [data-testid="stFileUploaderFile"] {
-            background: #fff !important;
-            border: 1px solid #e7e7e7 !important;
-            border-radius: 8px !important;
-            padding: 8px 10px !important;
-            margin-top: 8px !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-
+        # Catatan:
+        # Untuk menghindari overlap tombol upload di beberapa versi Streamlit,
+        # bagian file_uploader sengaja TIDAK diberi CSS custom.
         uploaded = st.file_uploader(
             "Upload CSV data aktual",
             type=["csv"],
             label_visibility="visible",
             key="upload_aktual_csv"
         )
+
+        # ================================================================
+        # Mapping nama kecamatan asli -> kode district model
+        # GANTI isi mapping ini sesuai arti DISTRICT_A s.d. DISTRICT_E
+        # di dataset/model kamu.
+        #
+        # Contoh:
+        # "cengkareng": "DISTRICT_A",
+        # "kebon jeruk": "DISTRICT_B",
+        # ================================================================
+        KECAMATAN_MAP = {
+            # TODO: sesuaikan dengan data training kamu
+            "nama kecamatan a": "DISTRICT_A",
+            "nama kecamatan b": "DISTRICT_B",
+            "nama kecamatan c": "DISTRICT_C",
+            "nama kecamatan d": "DISTRICT_D",
+            "nama kecamatan e": "DISTRICT_E",
+
+            # Format alternatif yang langsung diterima
+            "district a": "DISTRICT_A",
+            "district b": "DISTRICT_B",
+            "district c": "DISTRICT_C",
+            "district d": "DISTRICT_D",
+            "district e": "DISTRICT_E",
+            "district_a": "DISTRICT_A",
+            "district_b": "DISTRICT_B",
+            "district_c": "DISTRICT_C",
+            "district_d": "DISTRICT_D",
+            "district_e": "DISTRICT_E",
+        }
 
         def normalize_col(col):
             return (
@@ -652,20 +615,38 @@ with t3:
                 .replace("-", " ")
             )
 
+        def clean_text(x):
+            x = str(x).strip().lower()
+            x = x.replace("_", " ").replace("-", " ")
+            x = x.replace(".", "").replace(",", "")
+            return " ".join(x.split())
+
         def normalize_district(x):
-            x = str(x).strip()
+            raw = str(x).strip()
+            cleaned = clean_text(raw)
 
-            if x.upper().startswith("DISTRICT_"):
-                return x.upper()
+            # 1) Nama kecamatan asli berdasarkan mapping manual
+            if cleaned in KECAMATAN_MAP:
+                return KECAMATAN_MAP[cleaned]
 
-            if x.lower().startswith("district "):
-                return "DISTRICT_" + x.split()[-1].upper()
+            # 2) Kalau sudah format DISTRICT_A
+            upper_raw = raw.upper().replace(" ", "_").replace("-", "_")
+            if upper_raw.startswith("DISTRICT_"):
+                return upper_raw
 
-            return x
+            # 3) Kalau format District A
+            if cleaned.startswith("district ") and len(cleaned.split()) >= 2:
+                return "DISTRICT_" + cleaned.split()[-1].upper()
+
+            # 4) Kalau ternyata nilai aslinya sudah sama dengan key model
+            if raw in TOP5:
+                return raw
+
+            return raw
 
         if uploaded is not None:
             try:
-                # sep=None membantu membaca CSV dengan pemisah koma atau titik koma.
+                # sep=None membuat pandas otomatis membaca CSV koma atau titik koma
                 df_up = pd.read_csv(
                     uploaded,
                     sep=None,
@@ -673,7 +654,6 @@ with t3:
                     encoding="utf-8-sig"
                 )
 
-                # Bersihkan nama kolom dan terima beberapa variasi nama kolom.
                 original_cols = list(df_up.columns)
                 col_map = {normalize_col(c): c for c in df_up.columns}
 
@@ -682,14 +662,16 @@ with t3:
                         "kecamatan",
                         "kecamatan bengkel",
                         "district",
-                        "nama kecamatan"
+                        "nama kecamatan",
+                        "kecamatan/district",
                     ],
                     "Tanggal Servis": [
                         "tanggal servis",
+                        "tanggal service",
                         "tanggal",
                         "date",
-                        "tanggal service",
-                        "minggu"
+                        "minggu",
+                        "week",
                     ],
                     "Permintaan Servis": [
                         "permintaan servis",
@@ -697,8 +679,9 @@ with t3:
                         "aktual",
                         "actual",
                         "demand",
-                        "service demand"
-                    ]
+                        "service demand",
+                        "total servis",
+                    ],
                 }
 
                 rename_dict = {}
@@ -721,8 +704,20 @@ with t3:
                     st.stop()
 
                 df_up = df_up[required].copy()
-
+                df_up["Kecamatan Asli"] = df_up["Kecamatan"].astype(str)
                 df_up["Kecamatan"] = df_up["Kecamatan"].apply(normalize_district)
+
+                unknown_kecamatan = sorted(
+                    set(df_up["Kecamatan"].dropna().unique()) - set(TOP5)
+                )
+
+                if unknown_kecamatan:
+                    st.warning(
+                        "Ada nama kecamatan/district yang belum dikenali oleh model: "
+                        + ", ".join(map(str, unknown_kecamatan))
+                        + ". Tambahkan nama tersebut ke KECAMATAN_MAP di app.py."
+                    )
+
                 df_up["Tanggal Servis"] = pd.to_datetime(
                     df_up["Tanggal Servis"],
                     errors="coerce"
@@ -741,6 +736,13 @@ with t3:
                     st.stop()
 
                 st.success(f"File berhasil dibaca: {len(df_up)} baris data valid.")
+
+                with st.expander("Lihat preview data upload"):
+                    st.dataframe(
+                        df_up.head(20),
+                        use_container_width=True,
+                        hide_index=True
+                    )
 
                 rows_up = []
                 merged_up = {}
@@ -794,12 +796,12 @@ with t3:
                 else:
                     st.warning(
                         "File berhasil dibaca, tetapi tidak ada data yang cocok dengan forecast. "
-                        "Pastikan nama district sesuai, misalnya DISTRICT_A atau District A, "
-                        "dan tanggalnya sama dengan periode forecast."
+                        "Pastikan nama kecamatan sudah masuk KECAMATAN_MAP dan tanggalnya sama "
+                        "dengan periode forecast."
                     )
 
                     st.dataframe(
-                        df_up.head(10),
+                        df_up.head(20),
                         use_container_width=True,
                         hide_index=True
                     )
