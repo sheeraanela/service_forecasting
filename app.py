@@ -585,14 +585,19 @@ with t3:
         # "kebon jeruk": "DISTRICT_B",
         # ================================================================
         KECAMATAN_MAP = {
-            # TODO: sesuaikan dengan data training kamu
-            "nama kecamatan a": "DISTRICT_A",
-            "nama kecamatan b": "DISTRICT_B",
-            "nama kecamatan c": "DISTRICT_C",
-            "nama kecamatan d": "DISTRICT_D",
-            "nama kecamatan e": "DISTRICT_E",
+            # Format kecamatan dummy dari file upload kamu
+            "kecamatan a": "DISTRICT_A",
+            "kecamatan b": "DISTRICT_B",
+            "kecamatan c": "DISTRICT_C",
+            "kecamatan d": "DISTRICT_D",
+            "kecamatan e": "DISTRICT_E",
+            "kecamatan_a": "DISTRICT_A",
+            "kecamatan_b": "DISTRICT_B",
+            "kecamatan_c": "DISTRICT_C",
+            "kecamatan_d": "DISTRICT_D",
+            "kecamatan_e": "DISTRICT_E",
 
-            # Format alternatif yang langsung diterima
+            # Format district yang langsung diterima
             "district a": "DISTRICT_A",
             "district b": "DISTRICT_B",
             "district c": "DISTRICT_C",
@@ -603,6 +608,11 @@ with t3:
             "district_c": "DISTRICT_C",
             "district_d": "DISTRICT_D",
             "district_e": "DISTRICT_E",
+
+            # Kalau nanti mau pakai nama kecamatan asli, isi di sini.
+            # Contoh:
+            # "cengkareng": "DISTRICT_A",
+            # "kebon jeruk": "DISTRICT_B",
         }
 
         def normalize_col(col):
@@ -625,7 +635,7 @@ with t3:
             raw = str(x).strip()
             cleaned = clean_text(raw)
 
-            # 1) Nama kecamatan asli berdasarkan mapping manual
+            # 1) Nama kecamatan/district berdasarkan mapping manual
             if cleaned in KECAMATAN_MAP:
                 return KECAMATAN_MAP[cleaned]
 
@@ -634,11 +644,18 @@ with t3:
             if upper_raw.startswith("DISTRICT_"):
                 return upper_raw
 
-            # 3) Kalau format District A
+            # 3) Kalau format KECAMATAN_A, otomatis ubah ke DISTRICT_A
+            if upper_raw.startswith("KECAMATAN_"):
+                suffix = upper_raw.replace("KECAMATAN_", "", 1)
+                return f"DISTRICT_{suffix}"
+
+            # 4) Kalau format District A / Kecamatan A
             if cleaned.startswith("district ") and len(cleaned.split()) >= 2:
                 return "DISTRICT_" + cleaned.split()[-1].upper()
+            if cleaned.startswith("kecamatan ") and len(cleaned.split()) >= 2:
+                return "DISTRICT_" + cleaned.split()[-1].upper()
 
-            # 4) Kalau ternyata nilai aslinya sudah sama dengan key model
+            # 5) Kalau ternyata nilai aslinya sudah sama dengan key model
             if raw in TOP5:
                 return raw
 
@@ -737,12 +754,15 @@ with t3:
 
                 st.success(f"File berhasil dibaca: {len(df_up)} baris data valid.")
 
-                with st.expander("Lihat preview data upload"):
-                    st.dataframe(
-                        df_up.head(20),
-                        use_container_width=True,
-                        hide_index=True
-                    )
+                st.markdown(
+                    '<p class="sec" style="margin-top:10px">Preview Data Upload</p>',
+                    unsafe_allow_html=True
+                )
+                st.dataframe(
+                    df_up.head(20),
+                    use_container_width=True,
+                    hide_index=True
+                )
 
                 rows_up = []
                 merged_up = {}
@@ -755,12 +775,27 @@ with t3:
                     if act.empty:
                         continue
 
+                    # Merge berdasarkan minggu, bukan exact tanggal.
+                    # Ini penting karena data aktual bisa memakai Senin sebagai tanggal minggu,
+                    # sedangkan forecast bisa memakai Minggu/Sabtu sebagai tanggal anchor.
+                    fc_tmp = fcr[kec][["Tanggal Servis", "forecast"]].copy()
+                    act_tmp = act.copy()
+
+                    fc_tmp["Minggu"] = fc_tmp["Tanggal Servis"].dt.to_period("W").apply(lambda r: r.start_time)
+                    act_tmp["Minggu"] = act_tmp["Tanggal Servis"].dt.to_period("W").apply(lambda r: r.start_time)
+
                     merged = pd.merge(
-                        fcr[kec][["Tanggal Servis", "forecast"]],
-                        act,
-                        on="Tanggal Servis",
-                        how="inner"
+                        fc_tmp[["Minggu", "Tanggal Servis", "forecast"]],
+                        act_tmp[["Minggu", "Tanggal Servis", "Permintaan Servis"]],
+                        on="Minggu",
+                        how="inner",
+                        suffixes=("_forecast", "_aktual")
                     )
+
+                    merged = merged.rename(columns={
+                        "Tanggal Servis_forecast": "Tanggal Servis",
+                        "Tanggal Servis_aktual": "Tanggal Aktual"
+                    })
 
                     merged = merged[merged["Permintaan Servis"] > 0]
 
@@ -796,8 +831,8 @@ with t3:
                 else:
                     st.warning(
                         "File berhasil dibaca, tetapi tidak ada data yang cocok dengan forecast. "
-                        "Pastikan nama kecamatan sudah masuk KECAMATAN_MAP dan tanggalnya sama "
-                        "dengan periode forecast."
+                        "Pastikan nama kecamatan sudah terbaca sebagai DISTRICT_A sampai DISTRICT_E, "
+                        "dan tanggal aktual berada pada minggu/periode forecast yang sama."
                     )
 
                     st.dataframe(
