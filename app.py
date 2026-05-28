@@ -595,16 +595,44 @@ with t3:
             gap: 0.5rem !important;
         }
 
-        div[data-testid="stFileUploader"] button {
+        /* Paksa tombol uploader memakai satu teks saja.
+           Di beberapa versi Streamlit/browser, teks tombol bisa dobel/menumpuk. */
+        div[data-testid="stFileUploaderDropzone"] button {
+            position: relative !important;
+            min-width: 150px !important;
+            height: 42px !important;
             border-radius: 8px !important;
-            font-size: 0.78rem !important;
-            padding: 6px 14px !important;
+            padding: 0 16px !important;
             white-space: nowrap !important;
+            overflow: hidden !important;
+            color: transparent !important;
+            font-size: 0 !important;
+        }
+
+        div[data-testid="stFileUploaderDropzone"] button * {
+            visibility: hidden !important;
+            color: transparent !important;
+            font-size: 0 !important;
+            line-height: 0 !important;
+        }
+
+        div[data-testid="stFileUploaderDropzone"] button::after {
+            content: "Pilih CSV";
+            visibility: visible !important;
+            position: absolute !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            color: #111 !important;
+            font-size: 0.82rem !important;
+            font-weight: 500 !important;
+            line-height: 1 !important;
         }
 
         div[data-testid="stFileUploader"] small {
             color: #777 !important;
             font-size: 0.7rem !important;
+            margin-left: 8px !important;
         }
 
         div[data-testid="stFileUploader"] [data-testid="stFileUploaderFile"] {
