@@ -754,15 +754,18 @@ with t3:
 
                 st.success(f"File berhasil dibaca: {len(df_up)} baris data valid.")
 
-                st.markdown(
-                    '<p class="sec" style="margin-top:10px">Preview Data Upload</p>',
-                    unsafe_allow_html=True
-                )
-                st.dataframe(
-                    df_up.head(20),
-                    use_container_width=True,
-                    hide_index=True
-                )
+                # Preview sengaja diletakkan setelah grafik dan metrik agar
+                # pengguna melihat hasil forecasting terlebih dahulu.
+                def render_preview_upload():
+                    st.markdown(
+                        '<p class="sec" style="margin-top:14px">Preview Data Upload</p>',
+                        unsafe_allow_html=True
+                    )
+                    st.dataframe(
+                        df_up.head(20),
+                        use_container_width=True,
+                        hide_index=True
+                    )
 
                 rows_up = []
                 merged_up = {}
@@ -828,6 +831,10 @@ with t3:
                         merged_up,
                         f"{tgl_min} – {tgl_max}"
                     )
+
+                    # Tampilkan preview paling bawah setelah grafik, tabel metrik,
+                    # dan detail per minggu selesai dirender.
+                    render_preview_upload()
                 else:
                     st.warning(
                         "File berhasil dibaca, tetapi tidak ada data yang cocok dengan forecast. "
@@ -835,11 +842,8 @@ with t3:
                         "dan tanggal aktual berada pada minggu/periode forecast yang sama."
                     )
 
-                    st.dataframe(
-                        df_up.head(20),
-                        use_container_width=True,
-                        hide_index=True
-                    )
+                    # Kalau tidak ada data cocok, preview tetap ditampilkan untuk debugging.
+                    render_preview_upload()
 
             except Exception as e:
                 st.error(f"Gagal membaca file: {e}")
