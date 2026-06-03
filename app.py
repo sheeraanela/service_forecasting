@@ -78,6 +78,67 @@ div[data-testid="stSelectbox"] > div > div { font-size: 0.82rem !important; bord
 
 div[data-testid="stDateInput"] label { font-size: 0.62rem !important; font-weight: 700 !important;
     text-transform: uppercase !important; letter-spacing: 0.9px !important; color: #888 !important; }
+
+/* ================= FIX FILE UPLOADER OVERLAP =================
+   Hide Streamlit's internal uploader label/instruction text so it
+   cannot stack with the button text and become "uploadupload".
+*/
+div[data-testid="stFileUploader"] {
+    margin-top: 6px !important;
+}
+
+div[data-testid="stFileUploader"] label {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+div[data-testid="stFileUploader"] section {
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+}
+
+div[data-testid="stFileUploader"] section > div {
+    padding: 0 !important;
+}
+
+div[data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"] {
+    display: none !important;
+}
+
+div[data-testid="stFileUploader"] p {
+    display: none !important;
+}
+
+div[data-testid="stFileUploader"] small {
+    display: inline-block !important;
+    font-size: 0.72rem !important;
+    color: #777 !important;
+    margin-left: 8px !important;
+}
+
+div[data-testid="stFileUploader"] button {
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 0.82rem !important;
+    font-weight: 600 !important;
+    padding: 0.45rem 1rem !important;
+    border-radius: 8px !important;
+    border: 1px solid #ddd !important;
+    background: #fff !important;
+    color: #111 !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+}
+
+div[data-testid="stFileUploader"] button p,
+div[data-testid="stFileUploader"] button span {
+    display: inline !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -565,13 +626,15 @@ with t3:
             unsafe_allow_html=True
         )
 
-        # Catatan:
-        # Untuk menghindari overlap tombol upload di beberapa versi Streamlit,
-        # bagian file_uploader sengaja TIDAK diberi CSS custom.
+        st.markdown(
+            '<p class="sec">Upload CSV Data Aktual</p>',
+            unsafe_allow_html=True
+        )
+
         uploaded = st.file_uploader(
-            "Upload CSV data aktual",
+            label="Upload CSV data aktual",
             type=["csv"],
-            label_visibility="visible",
+            label_visibility="collapsed",
             key="upload_aktual_csv"
         )
 
