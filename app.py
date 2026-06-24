@@ -213,8 +213,6 @@ with c1:
 with c2:
     mp = xgb_m[sel]['mape'] * 100
     st.markdown(
-        f"<div style='padding:8px 0'><span style='font-size:0.8rem;color:#444'>"
-        f"<b>Model:</b> XGBoost &nbsp;·&nbsp"
         f"</span></div>", unsafe_allow_html=True)
 
 st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
