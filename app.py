@@ -483,7 +483,7 @@ with t2:
 with t3:
     st.markdown('<p class="sec">Sumber Data Aktual</p>', unsafe_allow_html=True)
 
-    sumber = st.radio("Pilih sumber", ["Validasi 2026 (Jan–Mar, bawaan)", "Upload data baru"],
+    sumber = st.radio("Pilih sumber", ["Validasi 2026", "Upload data baru"],
                       horizontal=True, label_visibility="collapsed")
 
     def render_perbandingan(df_val_metrics, merged_dict, label_periode):
