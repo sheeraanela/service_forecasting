@@ -79,66 +79,15 @@ div[data-testid="stSelectbox"] > div > div { font-size: 0.82rem !important; bord
 div[data-testid="stDateInput"] label { font-size: 0.62rem !important; font-weight: 700 !important;
     text-transform: uppercase !important; letter-spacing: 0.9px !important; color: #888 !important; }
 
-/* ================= FIX FILE UPLOADER OVERLAP =================
-   Hide Streamlit's internal uploader label/instruction text so it
-   cannot stack with the button text and become "uploadupload".
-*/
-div[data-testid="stFileUploader"] {
-    margin-top: 6px !important;
-}
-
-div[data-testid="stFileUploader"] label {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-    min-height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}
-
-div[data-testid="stFileUploader"] section {
-    padding: 0 !important;
-    border: none !important;
-    background: transparent !important;
-}
-
-div[data-testid="stFileUploader"] section > div {
-    padding: 0 !important;
-}
-
-div[data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"] {
-    display: none !important;
-}
-
-div[data-testid="stFileUploader"] p {
-    display: none !important;
-}
-
-div[data-testid="stFileUploader"] small {
-    display: inline-block !important;
-    font-size: 0.72rem !important;
-    color: #777 !important;
-    margin-left: 8px !important;
-}
-
-div[data-testid="stFileUploader"] button {
-    font-family: 'DM Sans', sans-serif !important;
-    font-size: 0.82rem !important;
-    font-weight: 600 !important;
-    padding: 0.45rem 1rem !important;
-    border-radius: 8px !important;
-    border: 1px solid #ddd !important;
-    background: #fff !important;
-    color: #111 !important;
-    line-height: 1.2 !important;
-    white-space: nowrap !important;
-}
-
-div[data-testid="stFileUploader"] button p,
-div[data-testid="stFileUploader"] button span {
-    display: inline !important;
-}
-
+div[data-testid="stFileUploader"] { margin-top: 6px !important; }
+div[data-testid="stFileUploader"] label { display: none !important; }
+div[data-testid="stFileUploader"] section { padding: 0 !important; border: none !important; background: transparent !important; }
+div[data-testid="stFileUploader"] section > div { padding: 0 !important; }
+div[data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
+div[data-testid="stFileUploader"] p { display: none !important; }
+div[data-testid="stFileUploader"] small { display: inline-block !important; font-size: 0.72rem !important; color: #777 !important; margin-left: 8px !important; }
+div[data-testid="stFileUploader"] button { font-family: 'DM Sans', sans-serif !important; font-size: 0.82rem !important; font-weight: 600 !important; padding: 0.45rem 1rem !important; border-radius: 8px !important; border: 1px solid #ddd !important; background: #fff !important; color: #111 !important; line-height: 1.2 !important; white-space: nowrap !important; }
+div[data-testid="stFileUploader"] button p, div[data-testid="stFileUploader"] button span { display: inline !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -183,6 +132,13 @@ COLS = cfg['warna_kec']
 CM   = dict(zip(TOP5, COLS))
 LEB  = {yr: v[0] for yr, v in cfg['lebaran'].items()}
 
+# Normalisasi dv26 — pastikan pakai kolom District bukan Kecamatan
+if dv26 is not None:
+    if 'Kecamatan' in dv26.columns and 'District' not in dv26.columns:
+        dv26 = dv26.rename(columns={'Kecamatan': 'District'})
+    elif 'Kecamatan' in dv26.columns and 'District' in dv26.columns:
+        dv26 = dv26.drop(columns=['Kecamatan'])
+
 def chart_base(h=320):
     return dict(
         plot_bgcolor='#fff', paper_bgcolor='#fff',
@@ -210,10 +166,6 @@ st.markdown("""
 c1, c2 = st.columns([2, 5])
 with c1:
     sel = st.selectbox("District", TOP5, format_func=dl)
-with c2:
-    mp = xgb_m[sel]['mape'] * 100
-    st.markdown(
-        f"</span></div>", unsafe_allow_html=True)
 
 st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
@@ -224,7 +176,6 @@ t1, t2, t3 = st.tabs(["  PRAKIRAAN  ", "  PENJELASAN XAI  ", "  PERBANDINGAN AKT
 with t1:
     fc = fcr[sel]
 
-    # KPI per bulan
     st.markdown('<p class="sec">Ringkasan Prakiraan per Bulan</p>', unsafe_allow_html=True)
     fc_monthly = fc.copy()
     fc_monthly['bulan'] = fc_monthly['Tanggal Servis'].dt.to_period('M')
@@ -244,9 +195,8 @@ with t1:
                       help=f"Optimistis: {row['total_optimistic']:,.0f} | Pesimistis: {row['total_pessimistic']:,.0f}")
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-
-    # Filter rentang tanggal
     st.markdown('<p class="sec">Filter Rentang Tampilan</p>', unsafe_allow_html=True)
+
     fc_min = fc['Tanggal Servis'].min().date()
     fc_max = fc['Tanggal Servis'].max().date()
 
@@ -285,7 +235,7 @@ with t1:
                 st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-    mask_fc    = (fc['Tanggal Servis'].dt.date >= tgl_mulai) & (fc['Tanggal Servis'].dt.date <= tgl_akhir)
+    mask_fc     = (fc['Tanggal Servis'].dt.date >= tgl_mulai) & (fc['Tanggal Servis'].dt.date <= tgl_akhir)
     fc_filtered = fc[mask_fc]
     n_minggu    = len(fc_filtered)
 
@@ -483,10 +433,20 @@ with t2:
 with t3:
     st.markdown('<p class="sec">Sumber Data Aktual</p>', unsafe_allow_html=True)
 
-    sumber = st.radio("Pilih sumber", ["Validasi 2026", "Upload data baru"],
-                      horizontal=True, label_visibility="collapsed")
+    # FIX: string radio dan kondisi harus sama persis
+    sumber = st.radio(
+        "Pilih sumber",
+        ["Validasi 2026 (Jan–Mei, bawaan)", "Upload data baru"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
 
     def render_perbandingan(df_val_metrics, merged_dict, label_periode):
+        # FIX: normalisasi kolom — pastikan pakai District bukan Kecamatan
+        df_val_metrics = df_val_metrics.copy()
+        if 'Kecamatan' in df_val_metrics.columns and 'District' not in df_val_metrics.columns:
+            df_val_metrics = df_val_metrics.rename(columns={'Kecamatan': 'District'})
+
         st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
         best  = df_val_metrics.loc[df_val_metrics['MAPE (%)'].idxmin()]
         worst = df_val_metrics.loc[df_val_metrics['MAPE (%)'].idxmax()]
@@ -494,8 +454,8 @@ with t3:
 
         k1, k2, k3, k4 = st.columns(4)
         with k1: st.metric("Rata-rata MAPE", f"{avg_m:.1f}%")
-        with k2: st.metric("Terbaik",  dl(best['Kecamatan']),  help=f"MAPE {best['MAPE (%)']:.1f}%")
-        with k3: st.metric("Terlemah", dl(worst['Kecamatan']), help=f"MAPE {worst['MAPE (%)']:.1f}%")
+        with k2: st.metric("Terbaik",  dl(best['District']),  help=f"MAPE {best['MAPE (%)']:.1f}%")
+        with k3: st.metric("Terlemah", dl(worst['District']), help=f"MAPE {worst['MAPE (%)']:.1f}%")
         with k4: st.metric("Periode",  label_periode)
 
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
@@ -555,7 +515,7 @@ with t3:
                     'displayModeBar': True, 'scrollZoom': True,
                     'modeBarButtonsToRemove': ['select2d', 'lasso2d']})
 
-                row_v = df_val_metrics[df_val_metrics['Kecamatan'] == sel_v]
+                row_v = df_val_metrics[df_val_metrics['District'] == sel_v]
                 if not row_v.empty:
                     row_v = row_v.iloc[0]
                     m1, m2, m3, m4 = st.columns(4)
@@ -601,31 +561,26 @@ with t3:
                   <p class="ibody">{desc}</p>
                 </div>""", unsafe_allow_html=True)
 
-    # Tampilkan berdasarkan pilihan sumber
-    if sumber == "Validasi 2026 (Jan–Mar, bawaan)":
+    # ── Tab 3 render ──────────────────────────────────────────────────────────
+    # FIX: string kondisi sama persis dengan radio options
+    if sumber == "Validasi 2026 (Jan–Mei, bawaan)":
         if dv26 is not None and vm26:
-            render_perbandingan(dv26, vm26, "Jan–Mar 2026")
+            render_perbandingan(dv26, vm26, "Jan–Mei 2026")
         else:
             st.warning("File validation_2026.csv atau validation_merged.pkl tidak ditemukan.")
 
     else:
-        st.markdown(
-            """
-            <div style="font-size:0.78rem;color:#666;margin:0 0 10px 0">
-                Upload file CSV data aktual. Kolom yang diterima:
-                <code>Kecamatan</code>, <code>Tanggal Servis</code>, dan
-                <code>Permintaan Servis</code>.<br>
-                Nama kolom alternatif seperti <code>Kecamatan Bengkel</code>,
-                <code>Jumlah Servis</code>, <code>Tanggal</code>, atau <code>Aktual</code> juga bisa.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        st.markdown("""
+        <div style="font-size:0.78rem;color:#666;margin:0 0 10px 0">
+            Upload file CSV data aktual. Kolom yang diterima:
+            <code>District</code>, <code>Tanggal Servis</code>, dan
+            <code>Jumlah Servis</code>.<br>
+            Nama kolom alternatif seperti <code>Kecamatan Bengkel</code>,
+            <code>Permintaan Servis</code>, <code>Tanggal</code>, atau <code>Aktual</code> juga bisa.
+        </div>
+        """, unsafe_allow_html=True)
 
-        st.markdown(
-            '<p class="sec">Upload CSV Data Aktual</p>',
-            unsafe_allow_html=True
-        )
+        st.markdown('<p class="sec">Upload CSV Data Aktual</p>', unsafe_allow_html=True)
 
         uploaded = st.file_uploader(
             label="Upload CSV data aktual",
@@ -634,130 +589,45 @@ with t3:
             key="upload_aktual_csv"
         )
 
-        # ================================================================
-        # Mapping nama kecamatan asli -> kode district model
-        # GANTI isi mapping ini sesuai arti DISTRICT_A s.d. DISTRICT_E
-        # di dataset/model kamu.
-        #
-        # Contoh:
-        # "cengkareng": "DISTRICT_A",
-        # "kebon jeruk": "DISTRICT_B",
-        # ================================================================
-        KECAMATAN_MAP = {
-            # Format kecamatan dummy dari file upload kamu
-            "kecamatan a": "DISTRICT_A",
-            "kecamatan b": "DISTRICT_B",
-            "kecamatan c": "DISTRICT_C",
-            "kecamatan d": "DISTRICT_D",
-            "kecamatan e": "DISTRICT_E",
-            "kecamatan_a": "DISTRICT_A",
-            "kecamatan_b": "DISTRICT_B",
-            "kecamatan_c": "DISTRICT_C",
-            "kecamatan_d": "DISTRICT_D",
-            "kecamatan_e": "DISTRICT_E",
-
-            # Format district yang langsung diterima
-            "district a": "DISTRICT_A",
-            "district b": "DISTRICT_B",
-            "district c": "DISTRICT_C",
-            "district d": "DISTRICT_D",
+        DISTRICT_MAP = {
+            "district a": "DISTRICT_A", "district b": "DISTRICT_B",
+            "district c": "DISTRICT_C", "district d": "DISTRICT_D",
             "district e": "DISTRICT_E",
-            "district_a": "DISTRICT_A",
-            "district_b": "DISTRICT_B",
-            "district_c": "DISTRICT_C",
-            "district_d": "DISTRICT_D",
+            "district_a": "DISTRICT_A", "district_b": "DISTRICT_B",
+            "district_c": "DISTRICT_C", "district_d": "DISTRICT_D",
             "district_e": "DISTRICT_E",
-
-            # Kalau nanti mau pakai nama kecamatan asli, isi di sini.
-            # Contoh:
-            # "cengkareng": "DISTRICT_A",
-            # "kebon jeruk": "DISTRICT_B",
+            "kecamatan a": "DISTRICT_A", "kecamatan b": "DISTRICT_B",
+            "kecamatan c": "DISTRICT_C", "kecamatan d": "DISTRICT_D",
+            "kecamatan e": "DISTRICT_E",
+            "kecamatan_a": "DISTRICT_A", "kecamatan_b": "DISTRICT_B",
+            "kecamatan_c": "DISTRICT_C", "kecamatan_d": "DISTRICT_D",
+            "kecamatan_e": "DISTRICT_E",
         }
 
         def normalize_col(col):
-            return (
-                str(col)
-                .replace("\ufeff", "")
-                .strip()
-                .lower()
-                .replace("_", " ")
-                .replace("-", " ")
-            )
-
-        def clean_text(x):
-            x = str(x).strip().lower()
-            x = x.replace("_", " ").replace("-", " ")
-            x = x.replace(".", "").replace(",", "")
-            return " ".join(x.split())
+            return str(col).replace("\ufeff","").strip().lower().replace("_"," ").replace("-"," ")
 
         def normalize_district(x):
-            raw = str(x).strip()
-            cleaned = clean_text(raw)
-
-            # 1) Nama kecamatan/district berdasarkan mapping manual
-            if cleaned in KECAMATAN_MAP:
-                return KECAMATAN_MAP[cleaned]
-
-            # 2) Kalau sudah format DISTRICT_A
-            upper_raw = raw.upper().replace(" ", "_").replace("-", "_")
-            if upper_raw.startswith("DISTRICT_"):
-                return upper_raw
-
-            # 3) Kalau format KECAMATAN_A, otomatis ubah ke DISTRICT_A
-            if upper_raw.startswith("KECAMATAN_"):
-                suffix = upper_raw.replace("KECAMATAN_", "", 1)
-                return f"DISTRICT_{suffix}"
-
-            # 4) Kalau format District A / Kecamatan A
-            if cleaned.startswith("district ") and len(cleaned.split()) >= 2:
-                return "DISTRICT_" + cleaned.split()[-1].upper()
-            if cleaned.startswith("kecamatan ") and len(cleaned.split()) >= 2:
-                return "DISTRICT_" + cleaned.split()[-1].upper()
-
-            # 5) Kalau ternyata nilai aslinya sudah sama dengan key model
-            if raw in TOP5:
-                return raw
-
+            raw     = str(x).strip()
+            cleaned = raw.lower().replace("_"," ").replace("-"," ")
+            if cleaned in DISTRICT_MAP:
+                return DISTRICT_MAP[cleaned]
+            upper = raw.upper().replace(" ","_").replace("-","_")
+            if upper.startswith("DISTRICT_"):  return upper
+            if upper.startswith("KECAMATAN_"): return "DISTRICT_" + upper.replace("KECAMATAN_","",1)
+            if raw in TOP5: return raw
             return raw
 
         if uploaded is not None:
             try:
-                # sep=None membuat pandas otomatis membaca CSV koma atau titik koma
-                df_up = pd.read_csv(
-                    uploaded,
-                    sep=None,
-                    engine="python",
-                    encoding="utf-8-sig"
-                )
-
+                df_up = pd.read_csv(uploaded, sep=None, engine="python", encoding="utf-8-sig")
                 original_cols = list(df_up.columns)
                 col_map = {normalize_col(c): c for c in df_up.columns}
 
                 aliases = {
-                    "Kecamatan": [
-                        "kecamatan",
-                        "kecamatan bengkel",
-                        "district",
-                        "nama kecamatan",
-                        "kecamatan/district",
-                    ],
-                    "Tanggal Servis": [
-                        "tanggal servis",
-                        "tanggal service",
-                        "tanggal",
-                        "date",
-                        "minggu",
-                        "week",
-                    ],
-                    "Permintaan Servis": [
-                        "permintaan servis",
-                        "jumlah servis",
-                        "aktual",
-                        "actual",
-                        "demand",
-                        "service demand",
-                        "total servis",
-                    ],
+                    "District": ["district","kecamatan","kecamatan bengkel","nama kecamatan"],
+                    "Tanggal Servis": ["tanggal servis","tanggal service","tanggal","date","minggu","week"],
+                    "Jumlah Servis":  ["jumlah servis","permintaan servis","aktual","actual","demand","total servis"],
                 }
 
                 rename_dict = {}
@@ -768,141 +638,76 @@ with t3:
                             break
 
                 df_up = df_up.rename(columns=rename_dict)
-
-                required = ["Kecamatan", "Tanggal Servis", "Permintaan Servis"]
-                missing = [c for c in required if c not in df_up.columns]
+                required = ["District", "Tanggal Servis", "Jumlah Servis"]
+                missing  = [c for c in required if c not in df_up.columns]
 
                 if missing:
-                    st.error(
-                        f"Kolom tidak ditemukan: {missing}. "
-                        f"Kolom yang terbaca dari file: {original_cols}"
-                    )
+                    st.error(f"Kolom tidak ditemukan: {missing}. Kolom terbaca: {original_cols}")
                     st.stop()
 
                 df_up = df_up[required].copy()
-                df_up["Kecamatan Asli"] = df_up["Kecamatan"].astype(str)
-                df_up["Kecamatan"] = df_up["Kecamatan"].apply(normalize_district)
+                df_up["District"]      = df_up["District"].apply(normalize_district)
+                df_up["Tanggal Servis"] = pd.to_datetime(df_up["Tanggal Servis"], errors="coerce")
+                df_up["Jumlah Servis"]  = pd.to_numeric(df_up["Jumlah Servis"], errors="coerce")
+                df_up = df_up.dropna(subset=["District","Tanggal Servis","Jumlah Servis"])
 
-                unknown_kecamatan = sorted(
-                    set(df_up["Kecamatan"].dropna().unique()) - set(TOP5)
-                )
-
-                if unknown_kecamatan:
-                    st.warning(
-                        "Ada nama kecamatan/district yang belum dikenali oleh model: "
-                        + ", ".join(map(str, unknown_kecamatan))
-                        + ". Tambahkan nama tersebut ke KECAMATAN_MAP di app.py."
-                    )
-
-                df_up["Tanggal Servis"] = pd.to_datetime(
-                    df_up["Tanggal Servis"],
-                    errors="coerce"
-                )
-                df_up["Permintaan Servis"] = pd.to_numeric(
-                    df_up["Permintaan Servis"],
-                    errors="coerce"
-                )
-
-                df_up = df_up.dropna(
-                    subset=["Kecamatan", "Tanggal Servis", "Permintaan Servis"]
-                )
+                unknown = sorted(set(df_up["District"].unique()) - set(TOP5))
+                if unknown:
+                    st.warning(f"District tidak dikenali: {unknown}. Tambahkan ke DISTRICT_MAP di app.py.")
 
                 if df_up.empty:
-                    st.warning("File terbaca, tetapi tidak ada baris valid setelah pembersihan data.")
+                    st.warning("Tidak ada baris valid setelah pembersihan.")
                     st.stop()
 
                 st.success(f"File berhasil dibaca: {len(df_up)} baris data valid.")
 
-                # Preview sengaja diletakkan setelah grafik dan metrik agar
-                # pengguna melihat hasil forecasting terlebih dahulu.
-                def render_preview_upload():
-                    st.markdown(
-                        '<p class="sec" style="margin-top:14px">Preview Data Upload</p>',
-                        unsafe_allow_html=True
-                    )
-                    st.dataframe(
-                        df_up.head(20),
-                        use_container_width=True,
-                        hide_index=True
-                    )
-
-                rows_up = []
+                rows_up   = []
                 merged_up = {}
 
                 for kec in TOP5:
-                    act = df_up[
-                        df_up["Kecamatan"] == kec
-                    ][["Tanggal Servis", "Permintaan Servis"]].copy()
+                    act = df_up[df_up["District"]==kec][["Tanggal Servis","Jumlah Servis"]].copy()
+                    if act.empty: continue
 
-                    if act.empty:
-                        continue
-
-                    # Merge berdasarkan minggu, bukan exact tanggal.
-                    # Ini penting karena data aktual bisa memakai Senin sebagai tanggal minggu,
-                    # sedangkan forecast bisa memakai Minggu/Sabtu sebagai tanggal anchor.
-                    fc_tmp = fcr[kec][["Tanggal Servis", "forecast"]].copy()
+                    fc_tmp  = fcr[kec][["Tanggal Servis","forecast"]].copy()
                     act_tmp = act.copy()
-
-                    fc_tmp["Minggu"] = fc_tmp["Tanggal Servis"].dt.to_period("W").apply(lambda r: r.start_time)
+                    fc_tmp["Minggu"]  = fc_tmp["Tanggal Servis"].dt.to_period("W").apply(lambda r: r.start_time)
                     act_tmp["Minggu"] = act_tmp["Tanggal Servis"].dt.to_period("W").apply(lambda r: r.start_time)
 
                     merged = pd.merge(
-                        fc_tmp[["Minggu", "Tanggal Servis", "forecast"]],
-                        act_tmp[["Minggu", "Tanggal Servis", "Permintaan Servis"]],
-                        on="Minggu",
-                        how="inner",
-                        suffixes=("_forecast", "_aktual")
-                    )
-
-                    merged = merged.rename(columns={
+                        fc_tmp[["Minggu","Tanggal Servis","forecast"]],
+                        act_tmp[["Minggu","Tanggal Servis","Jumlah Servis"]],
+                        on="Minggu", how="inner",
+                        suffixes=("_forecast","_aktual")
+                    ).rename(columns={
                         "Tanggal Servis_forecast": "Tanggal Servis",
-                        "Tanggal Servis_aktual": "Tanggal Aktual"
+                        "Tanggal Servis_aktual":   "Tanggal Aktual",
+                        "Jumlah Servis":           "aktual",
                     })
-
-                    merged = merged[merged["Permintaan Servis"] > 0]
-
-                    if merged.empty:
-                        continue
+                    merged = merged[merged["aktual"] > 0]
+                    if merged.empty: continue
 
                     fc_v = merged["forecast"].values
-                    ac_v = merged["Permintaan Servis"].values
-
+                    ac_v = merged["aktual"].values
                     rows_up.append({
-                        "Kecamatan": kec,
-                        "District": dl(kec),
-                        "MAPE (%)": round(np.mean(np.abs(fc_v - ac_v) / ac_v) * 100, 1),
-                        "RMSE": int(np.sqrt(np.mean((fc_v - ac_v) ** 2))),
-                        "MAE": int(np.mean(np.abs(fc_v - ac_v))),
-                        "Bias": int(np.mean(fc_v - ac_v)),
-                        "Minggu": len(merged),
+                        "District":  kec,
+                        "MAPE (%)":  round(np.mean(np.abs(fc_v-ac_v)/ac_v)*100, 1),
+                        "RMSE":      int(np.sqrt(np.mean((fc_v-ac_v)**2))),
+                        "MAE":       int(np.mean(np.abs(fc_v-ac_v))),
+                        "Bias":      int(np.mean(fc_v-ac_v)),
+                        "Minggu":    len(merged),
                     })
-
-                    merged_up[kec] = merged.rename(
-                        columns={"Permintaan Servis": "aktual"}
-                    )
+                    merged_up[kec] = merged
 
                 if rows_up:
                     tgl_min = df_up["Tanggal Servis"].min().strftime("%d %b %Y")
                     tgl_max = df_up["Tanggal Servis"].max().strftime("%d %b %Y")
+                    render_perbandingan(pd.DataFrame(rows_up), merged_up, f"{tgl_min} – {tgl_max}")
 
-                    render_perbandingan(
-                        pd.DataFrame(rows_up),
-                        merged_up,
-                        f"{tgl_min} – {tgl_max}"
-                    )
-
-                    # Tampilkan preview paling bawah setelah grafik, tabel metrik,
-                    # dan detail per minggu selesai dirender.
-                    render_preview_upload()
+                    st.markdown('<p class="sec" style="margin-top:14px">Preview Data Upload</p>', unsafe_allow_html=True)
+                    st.dataframe(df_up.head(20), use_container_width=True, hide_index=True)
                 else:
-                    st.warning(
-                        "File berhasil dibaca, tetapi tidak ada data yang cocok dengan forecast. "
-                        "Pastikan nama kecamatan sudah terbaca sebagai DISTRICT_A sampai DISTRICT_E, "
-                        "dan tanggal aktual berada pada minggu/periode forecast yang sama."
-                    )
-
-                    # Kalau tidak ada data cocok, preview tetap ditampilkan untuk debugging.
-                    render_preview_upload()
+                    st.warning("Tidak ada data yang cocok dengan forecast. Pastikan nama district dan tanggal sesuai.")
+                    st.dataframe(df_up.head(10), use_container_width=True, hide_index=True)
 
             except Exception as e:
                 st.error(f"Gagal membaca file: {e}")
